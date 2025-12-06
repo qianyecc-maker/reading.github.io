@@ -5,81 +5,160 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>KET 听写练习</title>
   <style>
-    body { font-family: Arial, sans-serif; padding: 20px; background: #f5f5f5; }
-    button { padding: 10px 20px; font-size: 16px; margin: 10px; cursor: pointer; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: #f8f9fa;
+      padding: 20px;
+      margin: 0;
+    }
+    .container {
+      max-width: 800px;
+      margin: 0 auto;
+      background: white;
+      padding: 24px;
+      border-radius: 12px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    }
+    h1 {
+      text-align: center;
+      color: #333;
+    }
+    .btn {
+      padding: 12px 24px;
+      font-size: 18px;
+      margin: 10px 5px;
+      cursor: pointer;
+      background: #007bff;
+      color: white;
+      border: none;
+      border-radius: 6px;
+      transition: background 0.2s;
+    }
+    .btn:hover {
+      background: #0069d9;
+    }
     #bookList, #dictationArea {
-      margin-top: 20px; padding: 15px; background: white; border-radius: 8px; display: none;
+      margin-top: 24px;
+      padding: 16px;
+      background: #f1f8ff;
+      border-radius: 8px;
+      display: none;
+    }
+    #bookList h3 {
+      margin-top: 0;
+      color: #007bff;
+    }
+    #bookList button {
+      margin: 6px;
+      padding: 8px 16px;
+      font-size: 16px;
+    }
+    #dictationArea p {
+      line-height: 1.6;
+    }
+    .error {
+      color: #dc3545;
+      background: #f8d7da;
+      padding: 10px;
+      border-radius: 6px;
+      margin-top: 10px;
+      display: none;
     }
   </style>
 </head>
 <body>
+  <div class="container">
+    <h1>📘 KET 听写练习工具</h1>
+    
+    <button id="btnSelectBook" class="btn">📚 选择词书</button>
+    <button id="btnStart" class="btn">🎧 开始听写</button>
+    
+    <div id="errorMessage" class="error"></div>
 
-<h1>KET 听写工具</h1>
-<button id="btnSelectBook">📚 选择词书</button>
-<button id="btnStart">🎧 开始听写</button>
+    <div id="bookList"></div>
+    <div id="dictationArea"></div>
+  </div>
 
-<div id="bookList"></div>
-<div id="dictationArea">听写区域...</div>
+  <script>
+    // 全局变量：存储加载的词库数据
+    let vocabularyData = null;
 
-<script>
-  let vocabularyData = null;
+    // 显示错误信息
+    function showError(msg) {
+      const el = document.getElementById('errorMessage');
+      el.textContent = '⚠️ ' + msg;
+      el.style.display = 'block';
+      setTimeout(() => el.style.display = 'none', 5000);
+    }
 
-  async function loadVocabulary() {
-    try {
-      const response = await fetch('./ket-vocabulary.json');
-      if (!response.ok) throw new Error('HTTP ' + response.status);
-      
-      const data = await response.json();
-      
-      // ✅ 你的 JSON 就是数组，直接赋值！
-      if (!Array.isArray(data)) {
-        throw new Error('数据格式错误：不是数组');
+    // 加载词库
+    async function loadVocabulary() {
+      try {
+        const response = await fetch('./ket-vocabulary.json');
+        if (!response.ok) {
+          throw new Error(`加载失败：HTTP ${response.status}`);
+        }
+        const data = await response.json();
+        if (!Array.isArray(data)) {
+          throw new Error('词库格式错误：应为数组');
+        }
+        if (data.length === 0) {
+          throw new Error('词库为空');
+        }
+        vocabularyData = data; // ✅ 赋值给全局变量
+        showBookList();
+      } catch (err) {
+        console.error('加载词库出错:', err);
+        showError(err.message || '未知错误');
       }
-      
-      vocabularyData = data;
-      console.log('✅ 词库加载成功，共', vocabularyData.length, '个主题');
-      showBookList();
-    } catch (err) {
-      console.error('❌ 加载失败:', err);
-      alert('⚠️ 词库加载失败：\n' + err.message);
     }
-  }
 
-  function showBookList() {
-    const bookList = document.getElementById('bookList');
-    bookList.innerHTML = '<h3>选择主题：</h3>';
-    vocabularyData.forEach(book => {
-      const btn = document.createElement('button');
-      btn.textContent = book.name;
-      btn.onclick = () => startDictation(book.words);
-      bookList.appendChild(btn);
+    // 显示词书列表
+    function showBookList() {
+      const bookList = document.getElementById('bookList');
+      bookList.innerHTML = '<h3>📖 请选择一个主题：</h3>';
+      vocabularyData.forEach(book => {
+        if (!book.name || !Array.isArray(book.words)) return;
+        const btn = document.createElement('button');
+        btn.className = 'btn';
+        btn.textContent = book.name + ` (${book.words.length})`;
+        btn.onclick = () => startDictation(book.words, book.name);
+        bookList.appendChild(btn);
+      });
+      bookList.style.display = 'block';
+    }
+
+    // 开始听写
+    function startDictation(words, name = '词书') {
+      const area = document.getElementById('dictationArea');
+      area.innerHTML = `
+        <h3>🎧 正在听写：${name}</h3>
+        <p>共 <strong>${words.length}</strong> 个单词。</p>
+        <p>前几个单词示例：<code>${words.slice(0, Math.min(5, words.length)).join(', ')}</code></p>
+        <p>（实际听写功能可在此处扩展）</p>
+      `;
+      area.style.display = 'block';
+    }
+
+    // 绑定按钮事件
+    document.getElementById('btnSelectBook').addEventListener('click', () => {
+      if (!vocabularyData) {
+        loadVocabulary();
+      } else {
+        document.getElementById('bookList').style.display = 'block';
+      }
     });
-    bookList.style.display = 'block';
-  }
 
-  function startDictation(words) {
-    document.getElementById('dictationArea').innerHTML = 
-      `<p>共 ${words.length} 个单词，开始听写！</p><p>示例：${words.slice(0, 3).join(', ')}</p>`;
-    document.getElementById('dictationArea').style.display = 'block';
-  }
-
-  document.getElementById('btnSelectBook').addEventListener('click', () => {
-    if (!vocabularyData) {
-      loadVocabulary();
-    } else {
-      document.getElementById('bookList').style.display = 'block';
-    }
-  });
-
-  document.getElementById('btnStart').addEventListener('click', () => {
-    if (!vocabularyData) {
-      alert('请先加载词书！');
-      loadVocabulary();
-    } else {
-      startDictation(vocabularyData[0].words);
-    }
-  });
-</script>
-
+    document.getElementById('btnStart').addEventListener('click', () => {
+      if (!vocabularyData) {
+        showError('请先加载词书！');
+        loadVocabulary();
+      } else {
+        // 默认使用第一个词书开始听写
+        const firstBook = vocabularyData[0];
+        startDictation(firstBook.words, firstBook.name);
+      }
+    });
+  </script>
 </body>
 </html>
