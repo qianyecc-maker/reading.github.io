@@ -41,7 +41,6 @@
     #homeSection { display: block; }
     #bookList h3, #dictationArea h3 { margin-top: 0; color: #4361ee; }
     
-    /* 听写区域 */
     #writingCanvas {
       width: 100%;
       height: 200px;
@@ -68,55 +67,54 @@
       font-weight: bold;
       letter-spacing: 2px;
     }
-    .error {
-      color: #e63946;
+    .hint {
       text-align: center;
-      padding: 10px;
-      background: #ffebee;
-      border-radius: 8px;
-      margin: 10px 0;
+      color: #6c757d;
+      font-size: 14px;
+      margin-top: -10px;
     }
   </style>
 </head>
 <body>
   <div class="container">
     <header>
-      <h1>📘 KET 单词听写</h1>
+      <h1>📘 KET 双模听写</h1>
     </header>
 
-    <!-- 主页 -->
     <div id="homeSection" class="section">
       <button id="btnSelectBook" class="btn">📚 选择词书</button>
       <button id="btnStart" class="btn">🎧 开始听写</button>
     </div>
 
-    <!-- 词书选择 -->
     <div id="bookList" class="section"></div>
 
-    <!-- 听写界面 -->
     <div id="dictationArea" class="section">
-      <h3>📝 请在下方手写输入听到的单词</h3>
-      <div class="word-display" id="currentWord">点击“开始听写”</div>
+      <h3>📝 请手写输入听到/看到的英文单词</h3>
+      <div class="word-display" id="currentPrompt">点击“开始听写”</div>
+      <div class="hint" id="currentHint"></div>
       <canvas id="writingCanvas"></canvas>
       <div class="controls">
         <button id="btnPlay" class="btn">🔊 再次播放</button>
         <button id="btnClear" class="btn">🗑️ 清空</button>
         <button id="btnNext" class="btn">➡️ 下一个</button>
-        <button id="btnSave" class="btn">✅ 保存/分享</button>
+        <button id="btnSave" class="btn">✅ 完成</button>
       </div>
     </div>
   </div>
 
   <script>
     let vocabularyData = null;
-    let currentWords = [];
-    let currentWordIndex = 0;
+    let currentTasks = []; // 所有打乱后的任务
+    let currentTaskIndex = 0;
 
-    // 提取单词文本（兼容对象和字符串）
-    function extractWordText(item) {
-      if (typeof item === 'string') return item;
-      if (item && typeof item === 'object' && item.word) return item.word;
-      return '[未知]';
+    // 随机打乱数组（Fisher-Yates）
+    function shuffle(array) {
+      const arr = [...array];
+      for (let i = arr.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [arr[i], arr[j]] = [arr[j], arr[i]];
+      }
+      return arr;
     }
 
     // 初始化画布
@@ -193,98 +191,43 @@
       showSection('bookList');
     }
 
+    // 核心：生成双模任务并打乱
     function startDictation(words) {
-      currentWords = words;
-      currentWordIndex = 0;
-      showNextWord();
+      const tasks = [];
+
+      // 为每个单词创建两个任务
+      words.forEach(item => {
+        const word = item.word;
+        const meaning = item.meaning || '';
+        tasks.push({ type: 'audio', word, meaning });
+        tasks.push({ type: 'meaning', word, meaning });
+      });
+
+      // 打乱顺序
+      currentTasks = shuffle(tasks);
+      currentTaskIndex = 0;
+
+      showNextTask();
       showSection('dictationArea');
       resizeCanvas();
     }
 
-    function showNextWord() {
-      if (currentWordIndex >= currentWords.length) {
-        alert('🎉 恭喜！本组听写已完成！');
+    function showNextTask() {
+      if (currentTaskIndex >= currentTasks.length) {
+        alert('🎉 恭喜！本组双模听写已完成！');
         showSection('homeSection');
         return;
       }
 
-      const rawWord = currentWords[currentWordIndex];
-      const displayWord = extractWordText(rawWord); // ✅ 关键修复：提取 .word
+      const task = currentTasks[currentTaskIndex];
+      const promptEl = document.getElementById('currentPrompt');
+      const hintEl = document.getElementById('currentHint');
 
-      document.getElementById('currentWord').textContent = displayWord;
-
-      // 语音朗读
-      if ('speechSynthesis' in window) {
-        speechSynthesis.cancel(); // 取消之前的朗读
-        const utter = new SpeechSynthesisUtterance(displayWord);
-        utter.lang = 'en-US';
-        utter.rate = 0.9;
-        speechSynthesis.speak(utter);
-      }
-
-      clearCanvas();
-    }
-
-    function showSection(sectionId) {
-      document.querySelectorAll('.section').forEach(el => el.style.display = 'none');
-      document.getElementById(sectionId).style.display = 'block';
-    }
-
-    // 初始化
-    window.addEventListener('load', () => {
-      resizeCanvas();
-      window.addEventListener('resize', resizeCanvas);
-
-      // 鼠标事件
-      canvas.addEventListener('mousedown', startDrawing);
-      canvas.addEventListener('mousemove', draw);
-      canvas.addEventListener('mouseup', stopDrawing);
-      canvas.addEventListener('mouseleave', stopDrawing);
-
-      // 触摸事件
-      canvas.addEventListener('touchstart', e => { e.preventDefault(); startDrawing(e); });
-      canvas.addEventListener('touchmove', e => { e.preventDefault(); draw(e); });
-      canvas.addEventListener('touchend', stopDrawing);
-
-      // 按钮事件
-      document.getElementById('btnSelectBook').onclick = () => {
-        if (!vocabularyData) loadVocabulary();
-        else showSection('bookList');
-      };
-
-      document.getElementById('btnStart').onclick = () => {
-        if (!vocabularyData) {
-          alert('请先加载词书！');
-          loadVocabulary();
-        } else {
-          startDictation(vocabularyData[0].words);
-        }
-      };
-
-      document.getElementById('btnPlay').onclick = () => {
-        if (currentWords.length > 0) {
-          const displayWord = extractWordText(currentWords[currentWordIndex]);
-          if ('speechSynthesis' in window) {
-            speechSynthesis.cancel();
-            const utter = new SpeechSynthesisUtterance(displayWord);
-            utter.lang = 'en-US';
-            utter.rate = 0.9;
-            speechSynthesis.speak(utter);
-          }
-        }
-      };
-
-      document.getElementById('btnClear').onclick = clearCanvas;
-      
-      document.getElementById('btnNext').onclick = () => {
-        currentWordIndex++;
-        showNextWord();
-      };
-
-      document.getElementById('btnSave').onclick = () => {
-        alert('✅ 长按手写区域可截图保存（移动端）\n或使用浏览器“打印为PDF”功能保存。');
-      };
-    });
-  </script>
-</body>
-</html>
+      if (task.type === 'audio') {
+        // 第一轮：听音写词
+        promptEl.textContent = '🔊 请听发音...';
+        hintEl.textContent = '（手写英文单词）';
+        
+        // 延迟播放，让用户看清提示
+        setTimeout(() => {
+          if ('speechSynthesis' in window
