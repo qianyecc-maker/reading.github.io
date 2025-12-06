@@ -37,6 +37,12 @@
       font-weight: bold;
     }
     .btn:hover { opacity: 0.9; }
+    .btn:disabled {
+      background: #ccc !important;
+      color: #666 !important;
+      cursor: not-allowed !important;
+      opacity: 0.6;
+    }
     .section {
       padding: 20px;
       display: none;
@@ -279,7 +285,7 @@
       showSection('bookList');
     }
 
-    // ========== 显示子组 + 单词预览（已修复） ==========
+    // ========== 显示子组 + 单词预览 ==========
     function showGroupList(book) {
       const groups = chunkArray(book.words, 30);
       const el = document.getElementById('groupList');
@@ -379,7 +385,7 @@
       resizeWritingCanvas();
     }
 
-    // ========== ✅ 使用有道发音的新版 showNextTask ==========
+    // ========== ✅ 优化版：动态启用/禁用“再次播放”按钮 ==========
     function showNextTask() {
       if (currentTaskIndex >= currentTasks.length) {
         generateSummary();
@@ -389,8 +395,10 @@
       const task = currentTasks[currentTaskIndex];
       const promptEl = document.getElementById('currentPrompt');
       const hintEl = document.getElementById('currentHint');
+      const btnPlay = document.getElementById('btnPlay');
 
       if (task.type === 'audio') {
+        btnPlay.disabled = false;
         promptEl.textContent = '🔊 请听发音...';
         hintEl.textContent = '（手写英文单词）';
 
@@ -402,6 +410,7 @@
           promptEl.textContent = '🔊 发音加载中...（或点击“再次播放”）';
         });
       } else {
+        btnPlay.disabled = true;
         promptEl.textContent = task.meaning || '[无中文]';
         hintEl.textContent = '（根据中文写出英文）';
       }
@@ -501,7 +510,7 @@
         }
       };
 
-      // ✅ 使用有道发音的“再次播放”
+      // ✅ 动态控制“再次播放”按钮
       document.getElementById('btnPlay').onclick = () => {
         const task = currentTasks[currentTaskIndex];
         if (task?.type === 'audio') {
@@ -523,6 +532,9 @@
         link.click();
       };
       document.getElementById('btnBackHome').onclick = () => showSection('homeSection');
+
+      // 初始禁用播放按钮
+      document.getElementById('btnPlay').disabled = true;
 
       // 暴露函数给内联调用
       window.showBookList = showBookList;
