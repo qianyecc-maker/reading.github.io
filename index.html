@@ -3,10 +3,10 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>KET 听写练习</title>
+  <title>KET 单词听写</title>
   <style>
     body {
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
       background: #f5f7fa;
       margin: 0;
       padding: 16px;
@@ -58,13 +58,23 @@
       margin-top: 15px;
     }
     .word-display {
-      font-size: 24px;
+      font-size: 28px;
       text-align: center;
       margin: 15px 0;
-      padding: 10px;
+      padding: 15px;
       background: #f8f9ff;
+      border-radius: 10px;
+      min-height: 48px;
+      font-weight: bold;
+      letter-spacing: 2px;
+    }
+    .error {
+      color: #e63946;
+      text-align: center;
+      padding: 10px;
+      background: #ffebee;
       border-radius: 8px;
-      min-height: 36px;
+      margin: 10px 0;
     }
   </style>
 </head>
@@ -85,8 +95,8 @@
 
     <!-- 听写界面 -->
     <div id="dictationArea" class="section">
-      <h3>📝 你的手写成果</h3>
-      <div class="word-display" id="currentWord">请点击“开始听写”</div>
+      <h3>📝 请在下方手写输入听到的单词</h3>
+      <div class="word-display" id="currentWord">点击“开始听写”</div>
       <canvas id="writingCanvas"></canvas>
       <div class="controls">
         <button id="btnPlay" class="btn">🔊 再次播放</button>
@@ -102,6 +112,13 @@
     let currentWords = [];
     let currentWordIndex = 0;
 
+    // 提取单词文本（兼容对象和字符串）
+    function extractWordText(item) {
+      if (typeof item === 'string') return item;
+      if (item && typeof item === 'object' && item.word) return item.word;
+      return '[未知]';
+    }
+
     // 初始化画布
     const canvas = document.getElementById('writingCanvas');
     const ctx = canvas.getContext('2d');
@@ -113,8 +130,14 @@
       if (canvas.width !== displayWidth || canvas.height !== displayHeight) {
         canvas.width = displayWidth;
         canvas.height = displayHeight;
-        redrawCanvas(); // 如果需要保留内容，可实现重绘
       }
+    }
+
+    function getPos(e) {
+      const rect = canvas.getBoundingClientRect();
+      const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+      const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+      return { x: clientX - rect.left, y: clientY - rect.top };
     }
 
     function startDrawing(e) {
@@ -138,32 +161,17 @@
       isDrawing = false;
     }
 
-    function getPos(e) {
-      const rect = canvas.getBoundingClientRect();
-      const clientX = e.touches ? e.touches[0].clientX : e.clientX;
-      const clientY = e.touches ? e.touches[0].clientY : e.clientY;
-      return {
-        x: clientX - rect.left,
-        y: clientY - rect.top
-      };
-    }
-
     function clearCanvas() {
       ctx.clearRect(0, 0, canvas.width, canvas.height);
-    }
-
-    function redrawCanvas() {
-      clearCanvas();
-      // 如果要保存手写内容，需记录路径并重绘（此处简化）
     }
 
     // 加载词库
     async function loadVocabulary() {
       try {
         const res = await fetch('./ket-vocabulary.json');
-        if (!res.ok) throw new Error('网络错误: ' + res.status);
+        if (!res.ok) throw new Error('HTTP ' + res.status);
         const data = await res.json();
-        if (!Array.isArray(data)) throw new Error('数据格式应为数组');
+        if (!Array.isArray(data)) throw new Error('数据格式错误');
         vocabularyData = data;
         showBookList();
       } catch (err) {
@@ -175,17 +183,17 @@
     function showBookList() {
       const el = document.getElementById('bookList');
       el.innerHTML = '<h3>📖 请选择分类</h3>';
-      vocabularyData.forEach((book, i) => {
+      vocabularyData.forEach(book => {
         const btn = document.createElement('button');
         btn.className = 'btn';
         btn.textContent = book.name;
-        btn.onclick = () => startFullDictation(book.words);
+        btn.onclick = () => startDictation(book.words);
         el.appendChild(btn);
       });
       showSection('bookList');
     }
 
-    function startFullDictation(words) {
+    function startDictation(words) {
       currentWords = words;
       currentWordIndex = 0;
       showNextWord();
@@ -195,21 +203,26 @@
 
     function showNextWord() {
       if (currentWordIndex >= currentWords.length) {
-        alert('🎉 听写完成！');
+        alert('🎉 恭喜！本组听写已完成！');
         showSection('homeSection');
         return;
       }
-      const word = currentWords[currentWordIndex];
-      document.getElementById('currentWord').textContent = word;
-      clearCanvas();
-      
-      // 这里可以调用语音合成（示例）
+
+      const rawWord = currentWords[currentWordIndex];
+      const displayWord = extractWordText(rawWord); // ✅ 关键修复：提取 .word
+
+      document.getElementById('currentWord').textContent = displayWord;
+
+      // 语音朗读
       if ('speechSynthesis' in window) {
-        const utter = new SpeechSynthesisUtterance(word);
+        speechSynthesis.cancel(); // 取消之前的朗读
+        const utter = new SpeechSynthesisUtterance(displayWord);
         utter.lang = 'en-US';
         utter.rate = 0.9;
         speechSynthesis.speak(utter);
       }
+
+      clearCanvas();
     }
 
     function showSection(sectionId) {
@@ -217,21 +230,23 @@
       document.getElementById(sectionId).style.display = 'block';
     }
 
-    // 初始化事件
+    // 初始化
     window.addEventListener('load', () => {
       resizeCanvas();
       window.addEventListener('resize', resizeCanvas);
 
+      // 鼠标事件
       canvas.addEventListener('mousedown', startDrawing);
       canvas.addEventListener('mousemove', draw);
       canvas.addEventListener('mouseup', stopDrawing);
       canvas.addEventListener('mouseleave', stopDrawing);
 
-      // 触摸屏支持
-      canvas.addEventListener('touchstart', (e) => { e.preventDefault(); startDrawing(e); });
-      canvas.addEventListener('touchmove', (e) => { e.preventDefault(); draw(e); });
+      // 触摸事件
+      canvas.addEventListener('touchstart', e => { e.preventDefault(); startDrawing(e); });
+      canvas.addEventListener('touchmove', e => { e.preventDefault(); draw(e); });
       canvas.addEventListener('touchend', stopDrawing);
 
+      // 按钮事件
       document.getElementById('btnSelectBook').onclick = () => {
         if (!vocabularyData) loadVocabulary();
         else showSection('bookList');
@@ -239,18 +254,19 @@
 
       document.getElementById('btnStart').onclick = () => {
         if (!vocabularyData) {
-          alert('请先选择词书！');
+          alert('请先加载词书！');
           loadVocabulary();
         } else {
-          startFullDictation(vocabularyData[0].words);
+          startDictation(vocabularyData[0].words);
         }
       };
 
       document.getElementById('btnPlay').onclick = () => {
         if (currentWords.length > 0) {
-          const word = currentWords[currentWordIndex];
+          const displayWord = extractWordText(currentWords[currentWordIndex]);
           if ('speechSynthesis' in window) {
-            const utter = new SpeechSynthesisUtterance(word);
+            speechSynthesis.cancel();
+            const utter = new SpeechSynthesisUtterance(displayWord);
             utter.lang = 'en-US';
             utter.rate = 0.9;
             speechSynthesis.speak(utter);
@@ -266,8 +282,7 @@
       };
 
       document.getElementById('btnSave').onclick = () => {
-        alert('✅ 长按下方图片可保存或分享（功能待实现）');
-        // 实际可生成图片并触发下载
+        alert('✅ 长按手写区域可截图保存（移动端）\n或使用浏览器“打印为PDF”功能保存。');
       };
     });
   </script>
