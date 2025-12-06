@@ -230,4 +230,86 @@
         
         // 延迟播放，让用户看清提示
         setTimeout(() => {
-          if ('speechSynthesis' in window
+          if ('speechSynthesis' in window) {
+            speechSynthesis.cancel();
+            const utter = new SpeechSynthesisUtterance(task.word);
+            utter.lang = 'en-US';
+            utter.rate = 0.9;
+            speechSynthesis.speak(utter);
+          }
+        }, 500);
+      } else {
+        // 第二轮：看中文写英文
+        promptEl.textContent = task.meaning || '[无中文]';
+        hintEl.textContent = '（根据中文写出英文）';
+        // 不自动播放语音
+      }
+
+      clearCanvas();
+    }
+
+    function showSection(sectionId) {
+      document.querySelectorAll('.section').forEach(el => el.style.display = 'none');
+      document.getElementById(sectionId).style.display = 'block';
+    }
+
+    // 初始化
+    window.addEventListener('load', () => {
+      resizeCanvas();
+      window.addEventListener('resize', resizeCanvas);
+
+      // 画布事件
+      canvas.addEventListener('mousedown', startDrawing);
+      canvas.addEventListener('mousemove', draw);
+      canvas.addEventListener('mouseup', stopDrawing);
+      canvas.addEventListener('mouseleave', stopDrawing);
+      canvas.addEventListener('touchstart', e => { e.preventDefault(); startDrawing(e); });
+      canvas.addEventListener('touchmove', e => { e.preventDefault(); draw(e); });
+      canvas.addEventListener('touchend', stopDrawing);
+
+      // 按钮事件
+      document.getElementById('btnSelectBook').onclick = () => {
+        if (!vocabularyData) loadVocabulary();
+        else showSection('bookList');
+      };
+
+      document.getElementById('btnStart').onclick = () => {
+        if (!vocabularyData) {
+          alert('请先加载词书！');
+          loadVocabulary();
+        } else {
+          startDictation(vocabularyData[0].words);
+        }
+      };
+
+      document.getElementById('btnPlay').onclick = () => {
+        const task = currentTasks[currentTaskIndex];
+        if (task && task.type === 'audio') {
+          if ('speechSynthesis' in window) {
+            speechSynthesis.cancel();
+            const utter = new SpeechSynthesisUtterance(task.word);
+            utter.lang = 'en-US';
+            utter.rate = 0.9;
+            speechSynthesis.speak(utter);
+          }
+        } else {
+          alert('📢 当前是“看中文写英文”模式，无需播放。');
+        }
+      };
+
+      document.getElementById('btnClear').onclick = clearCanvas;
+      
+      document.getElementById('btnNext').onclick = () => {
+        currentTaskIndex++;
+        showNextTask();
+      };
+
+      document.getElementById('btnSave').onclick = () => {
+        if (confirm('确定结束本次听写？')) {
+          showSection('homeSection');
+        }
+      };
+    });
+  </script>
+</body>
+</html>
