@@ -94,6 +94,21 @@
       border-radius: 8px;
       margin: 20px 0;
     }
+    .group-preview {
+      margin: 15px 0;
+      padding: 15px;
+      border: 1px solid #e9ecef;
+      border-radius: 8px;
+      background-color: #fafafa;
+    }
+    .preview-list {
+      display: none;
+      margin-top: 10px;
+      max-height: 200px;
+      overflow-y: auto;
+      font-size: 14px;
+      line-height: 1.6;
+    }
   </style>
 </head>
 <body>
@@ -111,7 +126,7 @@
     <!-- 词书列表 -->
     <div id="bookList" class="section"></div>
 
-    <!-- ✅ 关键：子组页面（每个分类的子页面） -->
+    <!-- ✅ 子组页面（每个分类的专属子页面） -->
     <div id="groupList" class="section"></div>
 
     <!-- 听写界面 -->
@@ -258,37 +273,74 @@
       showSection('bookList');
     }
 
-    // ========== 显示子组页面（关键！）==========
+    // ========== 显示子组页面（带单词预览）==========
     function showGroupList(book) {
-      const groups = chunkArray(book.words, 30); // 每组30词
+      const groups = chunkArray(book.words, 30);
       const el = document.getElementById('groupList');
       
       let html = `<h3>📂 ${book.name}</h3>`;
       html += `<p style="color:#666;">共 ${book.words.length} 个单词，分为 ${groups.length} 组</p>`;
       html += `<button class="btn" onclick="showBookList()">⬅️ 返回分类列表</button><br><br>`;
 
-      groups.forEach((group, index) => {
-        const btn = document.createElement('button');
-        btn.className = 'btn';
-        btn.textContent = `第 ${index + 1} 组 (${group.length} 词)`;
-        btn.onclick = () => startDictation(group, book.name);
-        el.appendChild(btn);
-      });
-
-      // 先清空再添加返回按钮
       el.innerHTML = html;
-      const container = document.createElement('div');
-      container.style.marginTop = '15px';
-      groups.forEach((group, index) => {
-        const btn = document.createElement('button');
-        btn.className = 'btn';
-        btn.textContent = `第 ${index + 1} 组 (${group.length} 词)`;
-        btn.onclick = () => startDictation(group, book.name);
-        container.appendChild(btn);
-      });
-      el.appendChild(container);
 
-      showSection('groupList'); // ✅ 切换到子页面
+      groups.forEach((group, index) => {
+        const groupDiv = document.createElement('div');
+        groupDiv.className = 'group-preview';
+
+        const titleBtn = document.createElement('button');
+        titleBtn.className = 'btn';
+        titleBtn.textContent = `第 ${index + 1} 组 (${group.length} 词)`;
+        titleBtn.style.width = '100%';
+        titleBtn.style.margin = '0 0 10px 0';
+
+        const toggleBtn = document.createElement('button');
+        toggleBtn.className = 'btn';
+        toggleBtn.textContent = '👁️ 预览单词';
+        toggleBtn.style.fontSize = '14px';
+        toggleBtn.style.padding = '6px 12px';
+        toggleBtn.style.backgroundColor = '#f0f0f0';
+
+        const previewList = document.createElement('div');
+        previewList.className = 'preview-list';
+
+        let listHtml = '<strong>本次听写单词：</strong><br>';
+        group.forEach(item => {
+          if (item && item.word) {
+            const meaning = item.meaning || '—';
+            listHtml += `<div>${item.word} — ${meaning}</div>`;
+          }
+        });
+        previewList.innerHTML = listHtml;
+
+        const startBtn = document.createElement('button');
+        startBtn.className = 'btn';
+        startBtn.textContent = '▶️ 开始听写本组';
+        startBtn.style.marginTop = '10px';
+        startBtn.style.width = '100%';
+        startBtn.onclick = () => startDictation(group, book.name);
+
+        toggleBtn.onclick = () => {
+          if (previewList.style.display === 'none') {
+            previewList.style.display = 'block';
+            toggleBtn.textContent = '👆 收起预览';
+          } else {
+            previewList.style.display = 'none';
+            toggleBtn.textContent = '👁️ 预览单词';
+          }
+        };
+
+        titleBtn.onclick = toggleBtn.onclick; // 点标题也展开
+
+        groupDiv.appendChild(titleBtn);
+        groupDiv.appendChild(toggleBtn);
+        groupDiv.appendChild(previewList);
+        groupDiv.appendChild(startBtn);
+
+        el.appendChild(groupDiv);
+      });
+
+      showSection('groupList');
     }
 
     // ========== 开始听写 ==========
@@ -405,7 +457,7 @@
             ctx.drawImage(img, maxWidth - 120, y - 50, 100, 60);
             resolve();
           };
-          img.onerror = resolve; // 容错
+          img.onerror = resolve;
         });
       }
 
@@ -463,7 +515,7 @@
       };
       document.getElementById('btnBackHome').onclick = () => showSection('homeSection');
 
-      // 暴露函数给内联调用（用于返回按钮）
+      // 暴露函数给内联调用
       window.showBookList = showBookList;
     });
   </script>
