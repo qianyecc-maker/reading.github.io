@@ -73,6 +73,13 @@
       font-size: 14px;
       margin-top: -10px;
     }
+    .error {
+      color: #e63946;
+      padding: 10px;
+      background: #ffebee;
+      border-radius: 8px;
+      margin: 10px 0;
+    }
   </style>
 </head>
 <body>
@@ -104,10 +111,9 @@
 
   <script>
     let vocabularyData = null;
-    let currentTasks = []; // 所有打乱后的任务
+    let currentTasks = [];
     let currentTaskIndex = 0;
 
-    // 随机打乱数组（Fisher-Yates）
     function shuffle(array) {
       const arr = [...array];
       for (let i = arr.length - 1; i > 0; i--) {
@@ -117,7 +123,6 @@
       return arr;
     }
 
-    // 初始化画布
     const canvas = document.getElementById('writingCanvas');
     const ctx = canvas.getContext('2d');
     let isDrawing = false;
@@ -163,13 +168,12 @@
       ctx.clearRect(0, 0, canvas.width, canvas.height);
     }
 
-    // 加载词库
     async function loadVocabulary() {
       try {
         const res = await fetch('./ket-vocabulary.json');
         if (!res.ok) throw new Error('HTTP ' + res.status);
         const data = await res.json();
-        if (!Array.isArray(data)) throw new Error('数据格式错误');
+        if (!Array.isArray(data)) throw new Error('数据格式应为数组');
         vocabularyData = data;
         showBookList();
       } catch (err) {
@@ -181,32 +185,51 @@
     function showBookList() {
       const el = document.getElementById('bookList');
       el.innerHTML = '<h3>📖 请选择分类</h3>';
-      vocabularyData.forEach(book => {
+      
+      // ✅ 关键修复：过滤无效词书
+      const validBooks = (vocabularyData || []).filter(book => 
+        Array.isArray(book.words) && book.words.length > 0
+      );
+
+      if (validBooks.length === 0) {
+        el.innerHTML += '<div class="error">未找到有效的词书（words 必须是非空数组）</div>';
+        showSection('bookList');
+        return;
+      }
+
+      validBooks.forEach(book => {
         const btn = document.createElement('button');
         btn.className = 'btn';
         btn.textContent = book.name;
         btn.onclick = () => startDictation(book.words);
         el.appendChild(btn);
       });
+      
       showSection('bookList');
     }
 
-    // 核心：生成双模任务并打乱
     function startDictation(words) {
-      const tasks = [];
+      // ✅ 安全检查
+      if (!Array.isArray(words) || words.length === 0) {
+        alert('⚠️ 该词书没有单词');
+        return;
+      }
 
-      // 为每个单词创建两个任务
+      const tasks = [];
       words.forEach(item => {
-        const word = item.word;
-        const meaning = item.meaning || '';
-        tasks.push({ type: 'audio', word, meaning });
-        tasks.push({ type: 'meaning', word, meaning });
+        if (item && typeof item === 'object' && item.word) {
+          tasks.push({ type: 'audio', word: item.word, meaning: item.meaning || '' });
+          tasks.push({ type: 'meaning', word: item.word, meaning: item.meaning || '' });
+        }
       });
 
-      // 打乱顺序
+      if (tasks.length === 0) {
+        alert('⚠️ 未提取到有效单词');
+        return;
+      }
+
       currentTasks = shuffle(tasks);
       currentTaskIndex = 0;
-
       showNextTask();
       showSection('dictationArea');
       resizeCanvas();
@@ -224,11 +247,8 @@
       const hintEl = document.getElementById('currentHint');
 
       if (task.type === 'audio') {
-        // 第一轮：听音写词
         promptEl.textContent = '🔊 请听发音...';
         hintEl.textContent = '（手写英文单词）';
-        
-        // 延迟播放，让用户看清提示
         setTimeout(() => {
           if ('speechSynthesis' in window) {
             speechSynthesis.cancel();
@@ -239,10 +259,8 @@
           }
         }, 500);
       } else {
-        // 第二轮：看中文写英文
         promptEl.textContent = task.meaning || '[无中文]';
         hintEl.textContent = '（根据中文写出英文）';
-        // 不自动播放语音
       }
 
       clearCanvas();
@@ -253,12 +271,10 @@
       document.getElementById(sectionId).style.display = 'block';
     }
 
-    // 初始化
     window.addEventListener('load', () => {
       resizeCanvas();
       window.addEventListener('resize', resizeCanvas);
 
-      // 画布事件
       canvas.addEventListener('mousedown', startDrawing);
       canvas.addEventListener('mousemove', draw);
       canvas.addEventListener('mouseup', stopDrawing);
@@ -267,18 +283,23 @@
       canvas.addEventListener('touchmove', e => { e.preventDefault(); draw(e); });
       canvas.addEventListener('touchend', stopDrawing);
 
-      // 按钮事件
       document.getElementById('btnSelectBook').onclick = () => {
         if (!vocabularyData) loadVocabulary();
-        else showSection('bookList');
+        else showBookList();
       };
 
       document.getElementById('btnStart').onclick = () => {
         if (!vocabularyData) {
-          alert('请先加载词书！');
+          alert('正在加载词书...');
           loadVocabulary();
         } else {
-          startDictation(vocabularyData[0].words);
+          const validBooks = vocabularyData.filter(b => Array.isArray(b.words) && b.words.length > 0);
+          if (validBooks.length > 0) {
+            startDictation(validBooks[0].words);
+          } else {
+            alert('没有可用的词书，请先选择！');
+            showBookList();
+          }
         }
       };
 
@@ -298,12 +319,10 @@
       };
 
       document.getElementById('btnClear').onclick = clearCanvas;
-      
       document.getElementById('btnNext').onclick = () => {
         currentTaskIndex++;
         showNextTask();
       };
-
       document.getElementById('btnSave').onclick = () => {
         if (confirm('确定结束本次听写？')) {
           showSection('homeSection');
