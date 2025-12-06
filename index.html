@@ -22,9 +22,8 @@
     header {
       background: #4361ee;
       color: white;
-      padding: 12px; /* 缩小高度 */
+      padding: 10px; /* 更紧凑 */
       text-align: center;
-      /* 若完全不需要 header，可设 display: none; */
     }
     .btn {
       padding: 12px 20px;
@@ -122,9 +121,7 @@
 </head>
 <body>
   <div class="container">
-    <header>
-      <!-- 标题已删除，仅保留色块作为视觉引导 -->
-    </header>
+    <header></header>
 
     <!-- 主页 -->
     <div id="homeSection" class="section">
@@ -187,18 +184,12 @@
       return arr;
     }
 
-    // ✅ 智能分组：每组 20~30 个，尽量均衡；若无法满足（如35词），则保留为一组
     function smartChunk(words, minSize = 20, maxSize = 30) {
       const total = words.length;
       if (total === 0) return [];
-      if (total <= maxSize) return [words]; // 包括 total < 20 的情况
+      if (total <= maxSize) return [words];
+      if (total < minSize * 2) return [words];
 
-      // 若 total > maxSize 但无法分成两组 ≥minSize，则仍用一组（容忍超30）
-      if (total < minSize * 2) {
-        return [words];
-      }
-
-      // 正常分组
       let groupCount = Math.ceil(total / maxSize);
       while (Math.floor(total / groupCount) < minSize) {
         groupCount++;
@@ -288,7 +279,6 @@
         alert(msg);
         console.error('词库加载错误:', err);
 
-        // ✅ 临时备用词库（仅用于演示，正式使用时可删除以下 10 行）
         if (!vocabularyData) {
           vocabularyData = [{
             name: "【示例】Unit 1",
@@ -380,9 +370,13 @@
 
         const startBtn = document.createElement('button');
         startBtn.className = 'btn';
-        startBtn.textContent = '▶️ 开始听写本组';
-        startBtn.style.marginTop = '10px';
-        startBtn.style.width = '100%';
+        startBtn.textContent = '▶️ 开始听写';
+        startBtn.style.marginTop = '12px';
+        startBtn.style.width = 'fit-content';
+        startBtn.style.padding = '8px 16px';
+        startBtn.style.fontSize = '14px';
+        startBtn.style.backgroundColor = '#4CAF50';
+        startBtn.style.color = 'white';
         startBtn.onclick = () => startDictation(group, book.name);
 
         function togglePreview() {
@@ -603,16 +597,11 @@
         link.click();
       };
       document.getElementById('btnBackHome').onclick = () => showSection('homeSection');
-
-      // ✅ 新增：听写页返回词书按钮
-      document.getElementById('btnBackToBooks').onclick = () => {
-        showBookList();
-      };
+      document.getElementById('btnBackToBooks').onclick = () => showBookList();
 
       // 初始禁用播放按钮
       document.getElementById('btnPlay').disabled = true;
 
-      // 暴露函数给内联调用
       window.showBookList = showBookList;
     });
   </script>
