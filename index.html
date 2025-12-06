@@ -174,6 +174,7 @@
     let currentTasks = [];
     let currentTaskIndex = 0;
     let handwritingRecords = [];
+    let isVocabularyLoading = false;
 
     // ========== 工具函数 ==========
     function shuffle(array) {
@@ -253,4 +254,366 @@
       const pos = getPos(e);
       writingCtx.lineWidth = 3;
       writingCtx.lineCap = 'round';
-      writingCtx.strokeStyle = '#2
+      writingCtx.strokeStyle = '#2b2d42';
+      writingCtx.lineTo(pos.x, pos.y);
+      writingCtx.stroke();
+    }
+
+    function stopDrawing() {
+      isDrawing = false;
+    }
+
+    function clearWritingCanvas() {
+      writingCtx.clearRect(0, 0, writingCanvas.width, writingCanvas.height);
+    }
+
+    // ========== 加载词库 ==========
+    async function loadVocabulary() {
+      if (isVocabularyLoading) return;
+      isVocabularyLoading = true;
+
+      try {
+        const res = await fetch('./ket-vocabulary.json');
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        const data = await res.json();
+        if (!Array.isArray(data)) throw new Error('数据格式应为数组');
+        vocabularyData = data;
+        showBookList();
+      } catch (err) {
+        let msg = '❌ 词库加载失败！\n\n请确认：\n1. 同目录下存在 ket-vocabulary.json\n2. 文件格式正确\n3. 使用 http/https 打开（不能直接 file://）';
+        if (err.message.includes('Failed to fetch')) {
+          msg += '\n\n💡 建议：将本页面拖入 VS Code Live Server 或 Python HTTP 服务中打开';
+        }
+        alert(msg);
+        console.error('词库加载错误:', err);
+
+        // ✅ 临时备用词库（仅用于演示，正式使用时可删除以下 10 行）
+        if (!vocabularyData) {
+          vocabularyData = [{
+            name: "【示例】Unit 1",
+            words: [
+              {"word": "hello", "meaning": "你好"},
+              {"word": "world", "meaning": "世界"},
+              {"word": "apple", "meaning": "苹果"},
+              {"word": "book", "meaning": "书"},
+              {"word": "cat", "meaning": "猫"},
+              {"word": "dog", "meaning": "狗"},
+              {"word": "school", "meaning": "学校"},
+              {"word": "teacher", "meaning": "老师"},
+              {"word": "student", "meaning": "学生"},
+              {"word": "pen", "meaning": "钢笔"}
+            ]
+          }];
+          showBookList();
+        }
+      } finally {
+        isVocabularyLoading = false;
+      }
+    }
+
+    // ========== 显示词书列表 ==========
+    function showBookList() {
+      const el = document.getElementById('bookList');
+      el.innerHTML = '<h3>📖 请选择词书分类</h3>';
+      
+      const validBooks = (vocabularyData || []).filter(book => 
+        Array.isArray(book.words) && book.words.length > 0
+      );
+
+      if (validBooks.length === 0) {
+        el.innerHTML += '<div class="error">未找到有效的词书</div>';
+        showSection('bookList');
+        return;
+      }
+
+      validBooks.forEach(book => {
+        const btn = document.createElement('button');
+        btn.className = 'btn';
+        btn.textContent = book.name;
+        btn.onclick = () => showGroupList(book);
+        el.appendChild(btn);
+      });
+      
+      showSection('bookList');
+    }
+
+    // ========== 显示子组 + 单词预览 ==========
+    function showGroupList(book) {
+      const groups = smartChunk(book.words);
+      const el = document.getElementById('groupList');
+      
+      let html = `<h3>📂 ${book.name}</h3>`;
+      html += `<p style="color:#666;">共 ${book.words.length} 个单词，分为 ${groups.length} 组</p>`;
+      html += `<button class="btn" onclick="showBookList()">⬅️ 返回分类列表</button><br><br>`;
+
+      el.innerHTML = html;
+
+      groups.forEach((group, index) => {
+        const groupDiv = document.createElement('div');
+        groupDiv.className = 'group-preview';
+
+        const titleBtn = document.createElement('button');
+        titleBtn.className = 'btn';
+        titleBtn.textContent = `第 ${index + 1} 组 (${group.length} 词)`;
+        titleBtn.style.width = '100%';
+        titleBtn.style.margin = '0 0 10px 0';
+
+        const toggleBtn = document.createElement('button');
+        toggleBtn.className = 'btn';
+        toggleBtn.textContent = '👁️ 预览单词';
+        toggleBtn.style.fontSize = '14px';
+        toggleBtn.style.padding = '6px 12px';
+        toggleBtn.style.backgroundColor = '#f0f0f0';
+
+        const previewList = document.createElement('div');
+        previewList.className = 'preview-list hidden';
+
+        let listHtml = '<strong>本次听写单词：</strong><br>';
+        group.forEach(item => {
+          if (item && item.word) {
+            const meaning = item.meaning || '—';
+            listHtml += `<div>${item.word} — ${meaning}</div>`;
+          }
+        });
+        previewList.innerHTML = listHtml;
+
+        const startBtn = document.createElement('button');
+        startBtn.className = 'btn';
+        startBtn.textContent = '▶️ 开始听写本组';
+        startBtn.style.marginTop = '10px';
+        startBtn.style.width = '100%';
+        startBtn.onclick = () => startDictation(group, book.name);
+
+        function togglePreview() {
+          if (previewList.classList.contains('hidden')) {
+            previewList.classList.remove('hidden');
+            toggleBtn.textContent = '👆 收起预览';
+          } else {
+            previewList.classList.add('hidden');
+            toggleBtn.textContent = '👁️ 预览单词';
+          }
+        }
+
+        toggleBtn.onclick = togglePreview;
+        titleBtn.onclick = togglePreview;
+
+        groupDiv.appendChild(titleBtn);
+        groupDiv.appendChild(toggleBtn);
+        groupDiv.appendChild(previewList);
+        groupDiv.appendChild(startBtn);
+
+        el.appendChild(groupDiv);
+      });
+
+      showSection('groupList');
+    }
+
+    // ========== 开始听写 ==========
+    function startDictation(words, categoryName) {
+      if (!Array.isArray(words) || words.length === 0) {
+        alert('⚠️ 该组无单词');
+        return;
+      }
+
+      const tasks = [];
+      words.forEach(item => {
+        if (item && typeof item === 'object' && item.word) {
+          tasks.push({ type: 'audio', word: item.word, meaning: item.meaning || '', category: categoryName });
+          tasks.push({ type: 'meaning', word: item.word, meaning: item.meaning || '', category: categoryName });
+        }
+      });
+
+      if (tasks.length === 0) {
+        alert('⚠️ 未提取到有效单词');
+        return;
+      }
+
+      currentTasks = shuffle(tasks);
+      currentTaskIndex = 0;
+      handwritingRecords = [];
+
+      showNextTask();
+      showSection('dictationArea');
+      resizeWritingCanvas();
+    }
+
+    // ========== 动态启用/禁用“再次播放”按钮 ==========
+    function showNextTask() {
+      if (currentTaskIndex >= currentTasks.length) {
+        generateSummary();
+        return;
+      }
+
+      const task = currentTasks[currentTaskIndex];
+      const promptEl = document.getElementById('currentPrompt');
+      const hintEl = document.getElementById('currentHint');
+      const btnPlay = document.getElementById('btnPlay');
+
+      if (task.type === 'audio') {
+        btnPlay.disabled = false;
+        promptEl.textContent = '🔊 请听发音...';
+        hintEl.textContent = '（手写英文单词）';
+
+        const audioUrl = `https://dict.youdao.com/dictvoice?audio=${encodeURIComponent(task.word)}&type=2`;
+        const audio = document.getElementById('pronunciationAudio');
+        audio.src = audioUrl;
+        audio.play().catch(e => {
+          console.warn('发音播放失败:', e);
+          promptEl.textContent = '🔊 发音加载中...（或点击“再次播放”）';
+        });
+      } else {
+        btnPlay.disabled = true;
+        promptEl.textContent = task.meaning || '[无中文]';
+        hintEl.textContent = '（根据中文写出英文）';
+      }
+
+      clearWritingCanvas();
+    }
+
+    // ========== 下一个 ==========
+    function nextWord() {
+      const imageData = writingCanvas.toDataURL('image/png');
+      handwritingRecords.push({
+        word: currentTasks[currentTaskIndex].word,
+        meaning: currentTasks[currentTaskIndex].meaning,
+        type: currentTasks[currentTaskIndex].type,
+        imageData: imageData
+      });
+
+      currentTaskIndex++;
+      showNextTask();
+    }
+
+    // ========== 生成汇总图 ==========
+    async function generateSummary() {
+      const canvas = document.getElementById('summaryCanvas');
+      const ctx = canvas.getContext('2d');
+
+      const maxWidth = 800;
+      const lineHeight = 90;
+      const totalHeight = Math.max(300, handwritingRecords.length * lineHeight + 100);
+      canvas.width = maxWidth;
+      canvas.height = totalHeight;
+
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(0, 0, maxWidth, totalHeight);
+
+      ctx.font = 'bold 24px Arial';
+      ctx.fillStyle = '#4361ee';
+      ctx.textAlign = 'center';
+      ctx.fillText('KET 听写结果汇总', maxWidth / 2, 40);
+
+      ctx.font = '16px Arial';
+      ctx.fillStyle = '#333';
+      ctx.textAlign = 'left';
+
+      for (let i = 0; i < handwritingRecords.length; i++) {
+        const rec = handwritingRecords[i];
+        const y = 80 + i * lineHeight;
+
+        let text = rec.type === 'audio'
+          ? `🔊 ${rec.word}`
+          : `📖 ${rec.meaning} → ${rec.word}`;
+        ctx.fillText(text, 20, y);
+
+        const img = new Image();
+        img.src = rec.imageData;
+        await new Promise(resolve => {
+          img.onload = () => {
+            const scale = 0.3;
+            ctx.drawImage(img, maxWidth - 120, y - 50, 100, 60);
+            resolve();
+          };
+          img.onerror = resolve;
+        });
+      }
+
+      document.getElementById('totalWords').textContent = handwritingRecords.length;
+      showSection('summarySection');
+    }
+
+    // ========== 初始化 ==========
+    window.addEventListener('load', () => {
+      resizeWritingCanvas();
+      window.addEventListener('resize', resizeWritingCanvas);
+
+      // 画布事件
+      writingCanvas.addEventListener('mousedown', startDrawing);
+      writingCanvas.addEventListener('mousemove', draw);
+      writingCanvas.addEventListener('mouseup', stopDrawing);
+      writingCanvas.addEventListener('mouseleave', stopDrawing);
+      writingCanvas.addEventListener('touchstart', e => { e.preventDefault(); startDrawing(e); });
+      writingCanvas.addEventListener('touchmove', e => { e.preventDefault(); draw(e); });
+      writingCanvas.addEventListener('touchend', stopDrawing);
+
+      // 按钮绑定
+      document.getElementById('btnSelectBook').onclick = async () => {
+        const btn = document.getElementById('btnSelectBook');
+        if (vocabularyData) {
+          showBookList();
+          return;
+        }
+        if (isVocabularyLoading) {
+          alert('📚 词库正在加载中，请稍候...');
+          return;
+        }
+
+        btn.disabled = true;
+        btn.textContent = '📚 加载中...';
+        await loadVocabulary();
+        btn.disabled = false;
+        btn.textContent = '📚 选择词书';
+      };
+
+      document.getElementById('btnStart').onclick = async () => {
+        if (!vocabularyData) {
+          if (isVocabularyLoading) {
+            alert('🎧 词库正在加载，请稍后再试');
+            return;
+          }
+          await loadVocabulary();
+        }
+        const valid = vocabularyData?.filter(b => Array.isArray(b.words) && b.words.length > 0) || [];
+        if (valid.length > 0) {
+          startDictation(valid[0].words, valid[0].name);
+        } else {
+          showBookList();
+        }
+      };
+
+      document.getElementById('btnPlay').onclick = () => {
+        const task = currentTasks[currentTaskIndex];
+        if (task?.type === 'audio') {
+          const audioUrl = `https://dict.youdao.com/dictvoice?audio=${encodeURIComponent(task.word)}&type=2`;
+          const audio = document.getElementById('pronunciationAudio');
+          audio.src = audioUrl;
+          audio.play().catch(e => {
+            alert('⚠️ 发音无法播放，请检查网络');
+          });
+        }
+      };
+
+      document.getElementById('btnClear').onclick = clearWritingCanvas;
+      document.getElementById('btnNext').onclick = nextWord;
+      document.getElementById('btnDownload').onclick = () => {
+        const link = document.createElement('a');
+        link.download = 'KET_听写结果.png';
+        link.href = document.getElementById('summaryCanvas').toDataURL('image/png');
+        link.click();
+      };
+      document.getElementById('btnBackHome').onclick = () => showSection('homeSection');
+
+      // ✅ 新增：听写页返回词书按钮
+      document.getElementById('btnBackToBooks').onclick = () => {
+        showBookList();
+      };
+
+      // 初始禁用播放按钮
+      document.getElementById('btnPlay').disabled = true;
+
+      // 暴露函数给内联调用
+      window.showBookList = showBookList;
+    });
+  </script>
+</body>
+</html>
