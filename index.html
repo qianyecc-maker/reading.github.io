@@ -2,454 +2,99 @@
 <html lang="zh-CN">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <title>KET 单词听写</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>KET 听写练习</title>
   <style>
-    * { margin: 0; padding: 0; box-sizing: border-box; }
     body {
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "PingFang SC", sans-serif;
-      background: linear-gradient(135deg, #6a11cb 0%, #2575fc 100%);
-      min-height: 100vh;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      padding: 12px;
-    }
-    .container {
-      width: 100%;
-      max-width: 800px;
-      background: white;
-      border-radius: 16px;
-      box-shadow: 0 6px 20px rgba(0,0,0,0.15);
-      overflow: hidden;
-      margin-bottom: 16px;
-    }
-    .content {
+      font-family: Arial, sans-serif;
       padding: 20px;
-    }
-    .word-display {
-      font-size: clamp(1.4rem, 6vw, 2rem);
-      text-align: center;
-      margin: 16px 0;
-      min-height: 50px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      line-height: 1.4;
-      padding: 0 8px;
-    }
-    .canvas-container {
-      border: 2px dashed #ccc;
-      border-radius: 8px;
-      height: 0;
-      padding-bottom: 50%;
-      position: relative;
-      margin: 16px 0;
-      background-color: #ffffff;
-    }
-    canvas {
-      position: absolute;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      cursor: crosshair;
-      touch-action: none;
-    }
-    .button-group {
-      display: flex;
-      gap: 10px;
-      flex-wrap: wrap;
-      margin-top: 12px;
+      background: #f5f5f5;
     }
     button {
-      flex: 1 1 calc(50% - 6px);
-      min-width: 120px;
-      padding: 12px;
-      font-size: clamp(0.9rem, 3.5vw, 1rem);
-      border: none;
-      border-radius: 8px;
+      padding: 10px 20px;
+      font-size: 16px;
+      margin: 10px;
       cursor: pointer;
-      transition: all 0.2s;
     }
-    @media (max-width: 480px) {
-      button { flex: 1 1 100%; min-width: auto; }
-    }
-    button:disabled {
-      cursor: not-allowed;
-      opacity: 0.5;
-    }
-    .btn-primary { background: #4a00e0; color: white; }
-    .btn-primary:hover:not(:disabled) { background: #3a00b0; }
-    .btn-secondary { background: #f0f0f0; color: #333; }
-    .btn-secondary:hover { background: #e0e0e0; }
-    .btn-clear { background: #f44336; color: white; }
-    .btn-clear:hover { background: #d32f2f; }
-    .btn-book { background: #ff9800; color: white; }
-    .btn-book:hover { background: #f57c00; }
-    .status {
-      margin-top: 12px;
-      padding: 10px;
+    #bookList, #dictationArea {
+      margin-top: 20px;
+      padding: 15px;
+      background: white;
       border-radius: 8px;
-      text-align: center;
-      font-weight: bold;
-      font-size: 0.95rem;
-    }
-    .status.correct { background: #d4edda; color: #155724; }
-    .status.incorrect { background: #f8d7da; color: #721c24; }
-    .progress-bar {
-      height: 6px;
-      background: #e0e0e0;
-      border-radius: 3px;
-      margin: 16px 0 12px;
-      overflow: hidden;
-    }
-    .progress {
-      height: 100%;
-      background: #4a00e0;
-      width: 0%;
-      transition: width 0.4s;
-    }
-    .instructions {
-      text-align: center;
-      padding: 8px 0;
-      color: #666;
-      font-size: 0.9rem;
-    }
-
-    /* 分类选择 */
-    #categorySelector, #groupSelector {
-      width: 100%;
-      max-width: 800px;
-      background: white;
-      border-radius: 16px;
-      box-shadow: 0 6px 20px rgba(0,0,0,0.15);
-      padding: 24px;
       display: none;
-    }
-    .selector-title {
-      text-align: center;
-      color: #4a00e0;
-      margin-bottom: 20px;
-      font-size: 1.5rem;
-    }
-    .selector-list {
-      display: grid;
-      gap: 12px;
-    }
-    .selector-item {
-      padding: 14px;
-      background: #f8f9ff;
-      border: 1px solid #ddd;
-      border-radius: 10px;
-      text-align: center;
-      font-weight: bold;
-      cursor: pointer;
-      transition: all 0.2s;
-    }
-    .selector-item:hover {
-      background: #eef2ff;
-      border-color: #4a00e0;
-      transform: translateY(-2px);
-    }
-
-    /* 汇总图 */
-    #summarySection {
-      width: 100%;
-      max-width: 800px;
-      background: white;
-      border-radius: 16px;
-      box-shadow: 0 6px 20px rgba(0,0,0,0.15);
-      padding: 16px;
-      margin-top: 16px;
-      display: none;
-    }
-    #summaryImage {
-      width: 100%;
-      border-radius: 8px;
-      box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-      background: white;
-      display: block;
-    }
-    .summary-tip {
-      text-align: center;
-      margin-top: 10px;
-      color: #666;
-      font-size: 0.9rem;
     }
   </style>
 </head>
 <body>
 
-  <!-- 分类选择 -->
-  <div id="categorySelector" class="container">
-    <h2 class="selector-title">📚 请选择分类</h2>
-    <div class="selector-list" id="categoryList"></div>
-  </div>
+<h1>KET 听写工具</h1>
+<button id="btnSelectBook">📚 选择词书</button>
+<button id="btnStart">🎧 开始听写</button>
 
-  <!-- 组选择 -->
-  <div id="groupSelector" class="container">
-    <h2 class="selector-title" id="groupTitle">📖 请选择组</h2>
-    <div class="selector-list" id="groupList"></div>
-  </div>
+<div id="bookList"></div>
+<div id="dictationArea">听写区域...</div>
 
-  <!-- 主界面 -->
-  <div id="mainApp" class="container">
-    <div class="content">
-      <div class="progress-bar">
-        <div class="progress" id="progress"></div>
-      </div>
-      <div class="word-display" id="wordDisplay">请点击“选择词书”</div>
-      
-      <div class="canvas-container">
-        <canvas id="drawingCanvas"></canvas>
-      </div>
-      
-      <div class="instructions">在上方区域手写输入单词</div>
-      
-      <div class="button-group" id="buttonGroup">
-        <button class="btn-primary" id="startBtn">🔄 开始听写</button>
-        <button class="btn-primary" id="playBtn">🔊 再次播放</button>
-        <button class="btn-clear" id="clearBtn">🗑️ 清空</button>
-        <button class="btn-secondary" id="nextBtn">下一个</button>
-        <button class="btn-book" id="selectBookBtn">📚 选择词书</button>
-      </div>
-      <div class="status" id="status"></div>
-    </div>
-  </div>
+<script>
+  let vocabularyData = null;
 
-  <!-- 汇总图 -->
-  <div id="summarySection">
-    <h2 style="text-align:center; color:#4a00e0; font-size:1.4rem;">📝 你的手写成果</h2>
-    <img id="summaryImage" alt="手写汇总图" />
-    <p class="summary-tip">✅ 长按图片可保存或分享</p>
-  </div>
-
-  <script>
-    // ======================
-    // 📘 加载 JSON 词库
-    // ======================
-    let vocabularyData = null;
-
-    async function loadVocabulary() {
-      try {
-        const response = await fetch('./ket-vocabulary.json');
-        vocabularyData = await response.json();
-        renderCategoryList();
-        showCategorySelector();
-      } catch (error) {
-        console.error('Failed to load ket-vocabulary.json:', error);
-        alert('❌ 无法加载词库文件！请确保 ket-vocabulary.json 与本页面在同一目录。');
+  // 加载词库
+  async function loadVocabulary() {
+    try {
+      const response = await fetch('./ket-vocabulary.json');
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
       }
-    }
-
-    // ======================
-    // 全局状态
-    // ======================
-    let currentWords = [];
-    let currentWordIndex = -1;
-    let handwritingCanvases = [];
-
-    // DOM
-    const categorySelector = document.getElementById('categorySelector');
-    const groupSelector = document.getElementById('groupSelector');
-    const mainApp = document.getElementById('mainApp');
-    const categoryList = document.getElementById('categoryList');
-    const groupList = document.getElementById('groupList');
-    const groupTitle = document.getElementById('groupTitle');
-    const selectBookBtn = document.getElementById('selectBookBtn');
-    const wordDisplay = document.getElementById('wordDisplay');
-    const drawingCanvas = document.getElementById('drawingCanvas');
-    const ctx = drawingCanvas.getContext('2d');
-    const playBtn = document.getElementById('playBtn');
-    const nextBtn = document.getElementById('nextBtn');
-    const startBtn = document.getElementById('startBtn');
-    const clearBtn = document.getElementById('clearBtn');
-    const statusDiv = document.getElementById('status');
-    const progressBar = document.getElementById('progress');
-    const buttonGroup = document.getElementById('buttonGroup');
-    const summarySection = document.getElementById('summarySection');
-    const summaryImage = document.getElementById('summaryImage');
-
-    // ======================
-    // 渲染分类列表
-    // ======================
-    function renderCategoryList() {
-      categoryList.innerHTML = '';
-      vocabularyData.categories.forEach(cat => {
-        const div = document.createElement('div');
-        div.className = 'selector-item';
-        div.textContent = cat.name;
-        div.addEventListener('click', () => showGroupSelector(cat));
-        categoryList.appendChild(div);
-      });
-    }
-
-    function showCategorySelector() {
-      categorySelector.style.display = 'block';
-      groupSelector.style.display = 'none';
-      mainApp.style.display = 'none';
-      summarySection.style.display = 'none';
-    }
-
-    function showGroupSelector(category) {
-      groupTitle.textContent = `📖 ${category.name} — 请选择组`;
-      groupList.innerHTML = '';
-      category.groups.forEach((group, idx) => {
-        const div = document.createElement('div');
-        div.className = 'selector-item';
-        div.textContent = group.name;
-        div.addEventListener('click', () => loadGroup(category, group));
-        groupList.appendChild(div);
-      });
-      categorySelector.style.display = 'none';
-      groupSelector.style.display = 'block';
-    }
-
-    // ======================
-    // 加载选中的组
-    // ======================
-    function loadGroup(category, group) {
-      // 构建任务列表：每个单词生成两个任务（中文→英文，听音→英文）
-      let tasks = [];
-      group.words.forEach(item => {
-        tasks.push({ word: item.word, meaning: item.meaning, mode: 'chinese' });
-        tasks.push({ word: item.word, meaning: item.meaning, mode: 'audio' });
-      });
-
-      // 打乱顺序（每次都不一样）
-      shuffleWithoutAdjacentDuplicates(tasks);
-
-      currentWords = tasks;
-      currentWordIndex = -1;
-      handwritingCanvases = [];
-
-      wordDisplay.textContent = "请点击“开始听写”";
-      statusDiv.textContent = "";
-      progressBar.style.width = "0%";
-
-      groupSelector.style.display = 'none';
-      mainApp.style.display = 'block';
-      summarySection.style.display = 'none';
-
-      setTimeout(setupCanvas, 50);
-    }
-
-    // ======================
-    // 工具函数
-    // ======================
-    function shuffle(array) {
-      for (let i = array.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1));
-        [array[i], array[j]] = [array[j], array[i]];
+      const text = await response.text();
+      // 检查是否包含 BOM（隐藏字符）
+      if (text.charCodeAt(0) === 0xFEFF) {
+        console.warn('检测到 BOM，已自动移除');
       }
+      vocabularyData = JSON.parse(text.trim().replace(/^\uFEFF/, ''));
+      console.log('✅ 词库加载成功:', vocabularyData);
+      showBookList();
+    } catch (err) {
+      console.error('❌ 词库加载失败:', err);
+      alert('⚠️ 词库加载失败！\n请确保 ket-vocabulary.json 文件存在且格式正确。\n错误信息：' + err.message);
     }
+  }
 
-    function shuffleWithoutAdjacentDuplicates(tasks) {
-      shuffle(tasks);
-      let attempts = 0;
-      while (attempts < 100) {
-        let bad = false;
-        for (let i = 0; i < tasks.length - 1; i++) {
-          if (tasks[i].word === tasks[i + 1].word) {
-            bad = true;
-            break;
-          }
-        }
-        if (!bad) return;
-        shuffle(tasks);
-        attempts++;
-      }
+  function showBookList() {
+    const bookList = document.getElementById('bookList');
+    bookList.innerHTML = '<h3>选择主题：</h3>';
+    vocabularyData.forEach((book, index) => {
+      const btn = document.createElement('button');
+      btn.textContent = book.name;
+      btn.onclick = () => startDictation(book.words);
+      bookList.appendChild(btn);
+    });
+    bookList.style.display = 'block';
+  }
+
+  function startDictation(words) {
+    document.getElementById('dictationArea').innerHTML = 
+      `<p>共 ${words.length} 个单词，开始听写！</p><p>示例：${words.slice(0, 3).join(', ')}</p>`;
+    document.getElementById('dictationArea').style.display = 'block';
+  }
+
+  // 绑定按钮
+  document.getElementById('btnSelectBook').addEventListener('click', () => {
+    if (!vocabularyData) {
+      loadVocabulary();
+    } else {
+      document.getElementById('bookList').style.display = 'block';
     }
+  });
 
-    // ======================
-    // Canvas 初始化
-    // ======================
-    function setupCanvas() {
-      const container = drawingCanvas.parentElement;
-      if (!container || container.clientWidth <= 0) {
-        setTimeout(setupCanvas, 100);
-        return;
-      }
-
-      const dpr = window.devicePixelRatio || 1;
-      const width = container.clientWidth;
-      const height = container.clientHeight;
-
-      drawingCanvas.style.width = width + 'px';
-      drawingCanvas.style.height = height + 'px';
-
-      drawingCanvas.width = width * dpr;
-      drawingCanvas.height = height * dpr;
-
-      ctx.fillStyle = '#ffffff';
-      ctx.fillRect(0, 0, drawingCanvas.width, drawingCanvas.height);
-
-      ctx.lineWidth = Math.max(2, width / 200) * dpr;
-      ctx.lineJoin = 'round';
-      ctx.lineCap = 'round';
-      ctx.strokeStyle = '#000';
+  document.getElementById('btnStart').addEventListener('click', () => {
+    if (!vocabularyData) {
+      alert('请先选择词书！');
+      loadVocabulary();
+    } else {
+      // 默认用第一个主题开始
+      startDictation(vocabularyData[0].words);
     }
+  });
+</script>
 
-    function getPos(e) {
-      const rect = drawingCanvas.getBoundingClientRect();
-      let clientX, clientY;
-      if (e.touches && e.touches.length > 0) {
-        clientX = e.touches[0].clientX;
-        clientY = e.touches[0].clientY;
-      } else {
-        clientX = e.clientX;
-        clientY = e.clientY;
-      }
-      return {
-        x: clientX - rect.left,
-        y: clientY - rect.top
-      };
-    }
-
-    let isDrawing = false;
-    let lastX = 0;
-    let lastY = 0;
-
-    function startDraw(e) {
-      isDrawing = true;
-      const pos = getPos(e);
-      lastX = pos.x;
-      lastY = pos.y;
-    }
-
-    function draw(e) {
-      if (!isDrawing) return;
-      e.preventDefault();
-      const pos = getPos(e);
-      const dpr = window.devicePixelRatio || 1;
-
-      ctx.beginPath();
-      ctx.moveTo(lastX * dpr, lastY * dpr);
-      ctx.lineTo(pos.x * dpr, pos.y * dpr);
-      ctx.stroke();
-
-      lastX = pos.x;
-      lastY = pos.y;
-    }
-
-    function stopDraw() {
-      isDrawing = false;
-    }
-
-    drawingCanvas.addEventListener('mousedown', startDraw);
-    drawingCanvas.addEventListener('mousemove', draw);
-    drawingCanvas.addEventListener('mouseup', stopDraw);
-    drawingCanvas.addEventListener('mouseout', stopDraw);
-    drawingCanvas.addEventListener('touchstart', startDraw);
-    drawingCanvas.addEventListener('touchmove', draw);
-    drawingCanvas.addEventListener('touchend', stopDraw);
-
-    function clearCanvas() {
-      const container = drawingCanvas.parentElement;
-      if (!container) return;
-      const width = container.clientWidth;
-      const height = container.clientHeight;
-      const dpr = window.devicePixelRatio || 1;
-      ctx.fillStyle = '#ffffff';
-      ctx.fillRect(0, 0, width * dpr, height *
+</body>
+</html>
