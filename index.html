@@ -37,13 +37,17 @@
       font-weight: bold;
     }
     .btn:hover { opacity: 0.9; }
-    .section { padding: 20px; display: none; }
-    #homeSection { display: block; }
-    #bookList h3, #groupList h3, #dictationArea h3, #summarySection h3 { 
-      margin-top: 0; 
-      color: #4361ee; 
+    .section {
+      padding: 20px;
+      display: none;
     }
-    
+    #homeSection {
+      display: block;
+    }
+    h3 {
+      margin-top: 0;
+      color: #4361ee;
+    }
     #writingCanvas {
       width: 100%;
       height: 200px;
@@ -72,7 +76,7 @@
     }
     .hint {
       text-align: center;
-      color: #6c757d;
+      color: #666;
       font-size: 14px;
       margin-top: -10px;
     }
@@ -107,7 +111,7 @@
     <!-- 词书列表 -->
     <div id="bookList" class="section"></div>
 
-    <!-- 子组列表 -->
+    <!-- ✅ 关键：子组页面（每个分类的子页面） -->
     <div id="groupList" class="section"></div>
 
     <!-- 听写界面 -->
@@ -133,7 +137,7 @@
         <button id="btnBackHome" class="btn">🏠 返回主页</button>
       </div>
       <p style="text-align:center; margin-top:15px; color:#666;">
-        💡 长按上方图片可发送到微信或保存
+        💡 长按上方图片可发送到微信或保存到相册
       </p>
     </div>
   </div>
@@ -142,8 +146,9 @@
     let vocabularyData = null;
     let currentTasks = [];
     let currentTaskIndex = 0;
-    let handwritingRecords = []; // [{ word, meaning, type, imageData }]
+    let handwritingRecords = [];
 
+    // 工具函数
     function shuffle(array) {
       const arr = [...array];
       for (let i = arr.length - 1; i > 0; i--) {
@@ -153,13 +158,17 @@
       return arr;
     }
 
-    // 分组函数：每30个一组
     function chunkArray(arr, size) {
       const groups = [];
       for (let i = 0; i < arr.length; i += size) {
         groups.push(arr.slice(i, i + size));
       }
       return groups;
+    }
+
+    function showSection(id) {
+      document.querySelectorAll('.section').forEach(el => el.style.display = 'none');
+      document.getElementById(id).style.display = 'block';
     }
 
     // ========== Canvas 初始化 ==========
@@ -223,7 +232,7 @@
       }
     }
 
-    // ========== 显示词书 ==========
+    // ========== 显示词书列表 ==========
     function showBookList() {
       const el = document.getElementById('bookList');
       el.innerHTML = '<h3>📖 请选择词书分类</h3>';
@@ -249,11 +258,14 @@
       showSection('bookList');
     }
 
-    // ========== 显示子组 ==========
+    // ========== 显示子组页面（关键！）==========
     function showGroupList(book) {
       const groups = chunkArray(book.words, 30); // 每组30词
       const el = document.getElementById('groupList');
-      el.innerHTML = `<h3>📂 ${book.name} - 请选择组</h3>`;
+      
+      let html = `<h3>📂 ${book.name}</h3>`;
+      html += `<p style="color:#666;">共 ${book.words.length} 个单词，分为 ${groups.length} 组</p>`;
+      html += `<button class="btn" onclick="showBookList()">⬅️ 返回分类列表</button><br><br>`;
 
       groups.forEach((group, index) => {
         const btn = document.createElement('button');
@@ -263,7 +275,20 @@
         el.appendChild(btn);
       });
 
-      showSection('groupList');
+      // 先清空再添加返回按钮
+      el.innerHTML = html;
+      const container = document.createElement('div');
+      container.style.marginTop = '15px';
+      groups.forEach((group, index) => {
+        const btn = document.createElement('button');
+        btn.className = 'btn';
+        btn.textContent = `第 ${index + 1} 组 (${group.length} 词)`;
+        btn.onclick = () => startDictation(group, book.name);
+        container.appendChild(btn);
+      });
+      el.appendChild(container);
+
+      showSection('groupList'); // ✅ 切换到子页面
     }
 
     // ========== 开始听写 ==========
@@ -288,7 +313,7 @@
 
       currentTasks = shuffle(tasks);
       currentTaskIndex = 0;
-      handwritingRecords = []; // 重置记录
+      handwritingRecords = [];
 
       showNextTask();
       showSection('dictationArea');
@@ -298,7 +323,6 @@
     // ========== 显示下一个任务 ==========
     function showNextTask() {
       if (currentTaskIndex >= currentTasks.length) {
-        // 全部完成 → 生成汇总
         generateSummary();
         return;
       }
@@ -327,15 +351,13 @@
       clearWritingCanvas();
     }
 
-    // ========== 下一个按钮 ==========
+    // ========== 下一个 ==========
     function nextWord() {
-      // 保存当前手写
       const imageData = writingCanvas.toDataURL('image/png');
-      const currentTask = currentTasks[currentTaskIndex];
       handwritingRecords.push({
-        word: currentTask.word,
-        meaning: currentTask.meaning,
-        type: currentTask.type,
+        word: currentTasks[currentTaskIndex].word,
+        meaning: currentTasks[currentTaskIndex].meaning,
+        type: currentTasks[currentTaskIndex].type,
         imageData: imageData
       });
 
@@ -345,21 +367,18 @@
 
     // ========== 生成汇总图 ==========
     async function generateSummary() {
-      const summaryCanvas = document.getElementById('summaryCanvas');
-      const ctx = summaryCanvas.getContext('2d');
+      const canvas = document.getElementById('summaryCanvas');
+      const ctx = canvas.getContext('2d');
 
-      // 设置画布尺寸（动态）
       const maxWidth = 800;
-      const lineHeight = 80;
-      const totalHeight = handwritingRecords.length * lineHeight + 100;
-      summaryCanvas.width = maxWidth;
-      summaryCanvas.height = totalHeight;
+      const lineHeight = 90;
+      const totalHeight = Math.max(300, handwritingRecords.length * lineHeight + 100);
+      canvas.width = maxWidth;
+      canvas.height = totalHeight;
 
-      // 背景
       ctx.fillStyle = '#ffffff';
       ctx.fillRect(0, 0, maxWidth, totalHeight);
 
-      // 标题
       ctx.font = 'bold 24px Arial';
       ctx.fillStyle = '#4361ee';
       ctx.textAlign = 'center';
@@ -369,43 +388,29 @@
       ctx.fillStyle = '#333';
       ctx.textAlign = 'left';
 
-      // 绘制每一行：单词 + 中文 + 手写图
       for (let i = 0; i < handwritingRecords.length; i++) {
-        const record = handwritingRecords[i];
+        const rec = handwritingRecords[i];
         const y = 80 + i * lineHeight;
 
-        // 文字部分
-        let label = '';
-        if (record.type === 'audio') {
-          label = `🔊 ${record.word}`;
-        } else {
-          label = `📖 ${record.meaning} → ${record.word}`;
-        }
-        ctx.fillText(label, 20, y);
+        let text = rec.type === 'audio'
+          ? `🔊 ${rec.word}`
+          : `📖 ${rec.meaning} → ${rec.word}`;
+        ctx.fillText(text, 20, y);
 
-        // 手写图像（小图）
         const img = new Image();
-        img.src = record.imageData;
+        img.src = rec.imageData;
         await new Promise(resolve => {
           img.onload = () => {
             const scale = 0.3;
-            const imgW = img.width * scale;
-            const imgH = img.height * scale;
-            ctx.drawImage(img, maxWidth - imgW - 20, y - imgH - 5, imgW, imgH);
+            ctx.drawImage(img, maxWidth - 120, y - 50, 100, 60);
             resolve();
           };
+          img.onerror = resolve; // 容错
         });
       }
 
-      // 显示汇总页
       document.getElementById('totalWords').textContent = handwritingRecords.length;
       showSection('summarySection');
-    }
-
-    // ========== 工具 ==========
-    function showSection(sectionId) {
-      document.querySelectorAll('.section').forEach(el => el.style.display = 'none');
-      document.getElementById(sectionId).style.display = 'block';
     }
 
     // ========== 初始化 ==========
@@ -422,7 +427,7 @@
       writingCanvas.addEventListener('touchmove', e => { e.preventDefault(); draw(e); });
       writingCanvas.addEventListener('touchend', stopDrawing);
 
-      // 按钮事件
+      // 按钮绑定
       document.getElementById('btnSelectBook').onclick = () => {
         if (!vocabularyData) loadVocabulary();
         else showBookList();
@@ -430,49 +435,36 @@
 
       document.getElementById('btnStart').onclick = () => {
         if (!vocabularyData) {
-          alert('正在加载词书...');
           loadVocabulary();
         } else {
-          const validBooks = vocabularyData.filter(b => Array.isArray(b.words) && b.words.length > 0);
-          if (validBooks.length > 0) {
-            const firstBook = validBooks[0];
-            const groups = chunkArray(firstBook.words, 30);
-            startDictation(groups[0], firstBook.name);
-          } else {
-            alert('没有可用词书');
-            showBookList();
-          }
+          const valid = vocabularyData.filter(b => Array.isArray(b.words) && b.words.length > 0);
+          if (valid.length > 0) startDictation(valid[0].words, valid[0].name);
+          else showBookList();
         }
       };
 
       document.getElementById('btnPlay').onclick = () => {
         const task = currentTasks[currentTaskIndex];
-        if (task && task.type === 'audio') {
-          if ('speechSynthesis' in window) {
-            speechSynthesis.cancel();
-            const utter = new SpeechSynthesisUtterance(task.word);
-            utter.lang = 'en-US';
-            utter.rate = 0.9;
-            speechSynthesis.speak(utter);
-          }
-        } else {
-          alert('📢 当前是“看中文写英文”模式');
+        if (task?.type === 'audio' && 'speechSynthesis' in window) {
+          speechSynthesis.cancel();
+          const u = new SpeechSynthesisUtterance(task.word);
+          u.lang = 'en-US'; u.rate = 0.9;
+          speechSynthesis.speak(u);
         }
       };
 
       document.getElementById('btnClear').onclick = clearWritingCanvas;
       document.getElementById('btnNext').onclick = nextWord;
-
       document.getElementById('btnDownload').onclick = () => {
         const link = document.createElement('a');
         link.download = 'KET_听写结果.png';
         link.href = document.getElementById('summaryCanvas').toDataURL('image/png');
         link.click();
       };
+      document.getElementById('btnBackHome').onclick = () => showSection('homeSection');
 
-      document.getElementById('btnBackHome').onclick = () => {
-        showSection('homeSection');
-      };
+      // 暴露函数给内联调用（用于返回按钮）
+      window.showBookList = showBookList;
     });
   </script>
 </body>
