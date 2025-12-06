@@ -233,7 +233,7 @@
 
     async function loadVocabulary() {
       try {
-        const response = await fetch('ket-vocabulary.json');
+        const response = await fetch('./ket-vocabulary.json');
         vocabularyData = await response.json();
         renderCategoryList();
         showCategorySelector();
