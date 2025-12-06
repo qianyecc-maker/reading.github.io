@@ -102,12 +102,14 @@
       background-color: #fafafa;
     }
     .preview-list {
-      display: none;
       margin-top: 10px;
       max-height: 200px;
       overflow-y: auto;
       font-size: 14px;
       line-height: 1.6;
+    }
+    .preview-list.hidden {
+      display: none !important;
     }
   </style>
 </head>
@@ -126,7 +128,7 @@
     <!-- 词书列表 -->
     <div id="bookList" class="section"></div>
 
-    <!-- ✅ 子组页面（每个分类的专属子页面） -->
+    <!-- 子组页面（带单词预览） -->
     <div id="groupList" class="section"></div>
 
     <!-- 听写界面 -->
@@ -156,6 +158,9 @@
       </p>
     </div>
   </div>
+
+  <!-- 隐藏音频播放器（用于有道发音） -->
+  <audio id="pronunciationAudio" style="display:none;"></audio>
 
   <script>
     let vocabularyData = null;
@@ -197,6 +202,7 @@
       if (writingCanvas.width !== w || writingCanvas.height !== h) {
         writingCanvas.width = w;
         writingCanvas.height = h;
+        clearWritingCanvas();
       }
     }
 
@@ -273,7 +279,7 @@
       showSection('bookList');
     }
 
-    // ========== 显示子组页面（带单词预览）==========
+    // ========== 显示子组 + 单词预览（已修复） ==========
     function showGroupList(book) {
       const groups = chunkArray(book.words, 30);
       const el = document.getElementById('groupList');
@@ -302,7 +308,7 @@
         toggleBtn.style.backgroundColor = '#f0f0f0';
 
         const previewList = document.createElement('div');
-        previewList.className = 'preview-list';
+        previewList.className = 'preview-list hidden';
 
         let listHtml = '<strong>本次听写单词：</strong><br>';
         group.forEach(item => {
@@ -320,17 +326,18 @@
         startBtn.style.width = '100%';
         startBtn.onclick = () => startDictation(group, book.name);
 
-        toggleBtn.onclick = () => {
-          if (previewList.style.display === 'none') {
-            previewList.style.display = 'block';
+        function togglePreview() {
+          if (previewList.classList.contains('hidden')) {
+            previewList.classList.remove('hidden');
             toggleBtn.textContent = '👆 收起预览';
           } else {
-            previewList.style.display = 'none';
+            previewList.classList.add('hidden');
             toggleBtn.textContent = '👁️ 预览单词';
           }
-        };
+        }
 
-        titleBtn.onclick = toggleBtn.onclick; // 点标题也展开
+        toggleBtn.onclick = togglePreview;
+        titleBtn.onclick = togglePreview;
 
         groupDiv.appendChild(titleBtn);
         groupDiv.appendChild(toggleBtn);
@@ -372,7 +379,7 @@
       resizeWritingCanvas();
     }
 
-    // ========== 显示下一个任务 ==========
+    // ========== ✅ 使用有道发音的新版 showNextTask ==========
     function showNextTask() {
       if (currentTaskIndex >= currentTasks.length) {
         generateSummary();
@@ -386,15 +393,14 @@
       if (task.type === 'audio') {
         promptEl.textContent = '🔊 请听发音...';
         hintEl.textContent = '（手写英文单词）';
-        setTimeout(() => {
-          if ('speechSynthesis' in window) {
-            speechSynthesis.cancel();
-            const utter = new SpeechSynthesisUtterance(task.word);
-            utter.lang = 'en-US';
-            utter.rate = 0.9;
-            speechSynthesis.speak(utter);
-          }
-        }, 500);
+
+        const audioUrl = `https://dict.youdao.com/dictvoice?audio=${encodeURIComponent(task.word)}&type=2`;
+        const audio = document.getElementById('pronunciationAudio');
+        audio.src = audioUrl;
+        audio.play().catch(e => {
+          console.warn('发音播放失败:', e);
+          promptEl.textContent = '🔊 发音加载中...（或点击“再次播放”）';
+        });
       } else {
         promptEl.textContent = task.meaning || '[无中文]';
         hintEl.textContent = '（根据中文写出英文）';
@@ -495,13 +501,16 @@
         }
       };
 
+      // ✅ 使用有道发音的“再次播放”
       document.getElementById('btnPlay').onclick = () => {
         const task = currentTasks[currentTaskIndex];
-        if (task?.type === 'audio' && 'speechSynthesis' in window) {
-          speechSynthesis.cancel();
-          const u = new SpeechSynthesisUtterance(task.word);
-          u.lang = 'en-US'; u.rate = 0.9;
-          speechSynthesis.speak(u);
+        if (task?.type === 'audio') {
+          const audioUrl = `https://dict.youdao.com/dictvoice?audio=${encodeURIComponent(task.word)}&type=2`;
+          const audio = document.getElementById('pronunciationAudio');
+          audio.src = audioUrl;
+          audio.play().catch(e => {
+            alert('⚠️ 发音无法播放，请检查网络');
+          });
         }
       };
 
