@@ -57,16 +57,28 @@
       color: #4361ee;
     }
 
-    /* 👇 关键：移动端自适应 Canvas */
+    /* 👇 书写区更大 + 字体更小 */
+    .word-display {
+      font-size: 22px; /* 👈 调小 */
+      text-align: center;
+      margin: 15px 0;
+      padding: 12px;
+      background: #f8f9ff;
+      border-radius: 10px;
+      min-height: 40px;
+      font-weight: bold;
+      letter-spacing: 1.5px;
+    }
+
     #writingCanvas {
       width: 100%;
-      height: min(200px, calc(35vh - 60px)); /* 自适应高度，避免滚动 */
+      height: min(240px, calc(40vh - 60px)); /* 👈 更高 */
       border: 2px dashed #ccc;
       border-radius: 8px;
       background: white;
       margin: 15px 0;
       touch-action: none;
-      max-height: 200px;
+      max-height: 240px;
     }
 
     .controls {
@@ -76,22 +88,11 @@
       margin-top: 15px;
       justify-content: center;
     }
-    .word-display {
-      font-size: 28px;
-      text-align: center;
-      margin: 15px 0;
-      padding: 15px;
-      background: #f8f9ff;
-      border-radius: 10px;
-      min-height: 48px;
-      font-weight: bold;
-      letter-spacing: 2px;
-    }
     .hint {
       text-align: center;
       color: #666;
       font-size: 14px;
-      margin-top: -10px;
+      margin-top: -8px;
     }
     .error {
       color: #e63946;
@@ -100,18 +101,10 @@
       border-radius: 8px;
       margin: 10px 0;
     }
-    #summaryCanvas {
+    #summaryCanvas, #summaryImage {
       width: 100%;
-      background: white;
-      border: 1px solid #ddd;
       border-radius: 8px;
       margin: 20px 0;
-      display: none;
-    }
-    #summaryImage {
-      width: 100%;
-      border-radius: 8px;
-      margin: 15px 0;
       display: none;
     }
     .group-preview {
@@ -132,7 +125,6 @@
       display: none !important;
     }
 
-    /* 确保移动端按钮不换行太散 */
     @media (max-width: 600px) {
       .controls {
         flex-direction: column;
@@ -158,7 +150,7 @@
     <!-- 词书列表 -->
     <div id="bookList" class="section"></div>
 
-    <!-- 子组页面（带单词预览） -->
+    <!-- 子组页面 -->
     <div id="groupList" class="section"></div>
 
     <!-- 听写界面 -->
@@ -505,15 +497,16 @@
       showNextTask();
     }
 
-    // ========== 生成高清汇总图（紧凑布局） ==========
+    // ========== 生成高清汇总图（超紧凑左对齐布局） ==========
     async function generateSummary() {
-      const maxWidth = 900;
-      const handwritingMaxHeight = 80; // 👈 缩小高度
-      const lineHeight = handwritingMaxHeight + 25; // 行距更紧凑
+      const maxWidth = 880;
+      const handwritingMaxHeight = 72; // 稍小，更紧凑
+      const lineHeight = handwritingMaxHeight + 18; // 行距压缩
       const paddingX = 20;
-      const topMargin = 70;
+      const topMargin = 65;
+      const textMaxWidth = 310; // 文字区域固定宽度
 
-      const totalHeight = Math.max(350, topMargin + handwritingRecords.length * lineHeight + 50);
+      const totalHeight = Math.max(320, topMargin + handwritingRecords.length * lineHeight + 40);
 
       const canvas = document.getElementById('summaryCanvas');
       const ctx = canvas.getContext('2d');
@@ -528,56 +521,46 @@
       ctx.fillStyle = '#ffffff';
       ctx.fillRect(0, 0, maxWidth, totalHeight);
 
-      ctx.font = 'bold 26px -apple-system, BlinkMacSystemFont, "Helvetica Neue", sans-serif';
+      // 标题
+      ctx.font = 'bold 24px -apple-system, BlinkMacSystemFont, "Helvetica Neue", sans-serif';
       ctx.fillStyle = '#4361ee';
       ctx.textAlign = 'center';
-      ctx.fillText('KET 听写结果汇总', maxWidth / 2, 45);
+      ctx.fillText('KET 听写结果汇总', maxWidth / 2, 42);
 
-      ctx.font = '17px -apple-system, BlinkMacSystemFont, "Helvetica Neue", sans-serif';
-      ctx.fillStyle = '#333';
       ctx.textAlign = 'left';
+      ctx.fillStyle = '#333';
+      ctx.font = '16px -apple-system, BlinkMacSystemFont, "Helvetica Neue", sans-serif';
 
       for (let i = 0; i < handwritingRecords.length; i++) {
         const rec = handwritingRecords[i];
         const y = topMargin + i * lineHeight;
 
+        // 构建提示文本
         let text = rec.type === 'audio'
           ? `🔊 ${rec.word}`
           : `📖 ${rec.meaning || '—'} → ${rec.word}`;
 
-        // 控制文字宽度，避免换行过多
-        const textWidth = ctx.measureText(text).width;
-        if (textWidth > maxWidth - 220) {
-          // 简单截断或缩小字号（此处保持可读性，优先换行）
-          const words = text.split(' ');
-          let line = '';
-          for (const w of words) {
-            if (ctx.measureText(line + w).width < maxWidth - 220) {
-              line += (line ? ' ' : '') + w;
-            } else {
-              break;
-            }
-          }
-          text = line + '…';
-        }
+        // 绘制文字（固定宽度内）
+        ctx.fillText(text, paddingX, y + handwritingMaxHeight / 2 + 4);
 
-        // 文字绘制（垂直居中）
-        ctx.fillText(text, paddingX, y + handwritingMaxHeight / 2 + 5);
-
-        // 手写图绘制（右侧，紧凑）
+        // 绘制手写图（紧贴文字右侧，仅隔 6px）
         const img = new Image();
         img.src = rec.imageData;
         await new Promise(resolve => {
           img.onload = () => {
             const iw = img.width;
             const ih = img.height;
+            if (ih === 0) { resolve(); return; }
+
             const scaleImg = handwritingMaxHeight / ih;
             const targetW = iw * scaleImg;
-            const finalW = Math.min(targetW, 180); // 最大宽度 180px
+            const finalW = Math.min(targetW, 170); // 最大图宽
             const finalH = (finalW / iw) * ih;
-            const x = maxWidth - finalW - paddingX;
-            const yImg = y + (handwritingMaxHeight - finalH) / 2; // 垂直居中
-            ctx.drawImage(img, x, yImg, finalW, finalH);
+
+            const imgX = paddingX + textMaxWidth + 6; // 👈 关键：仅 +6px 间隙
+            const imgY = y + (handwritingMaxHeight - finalH) / 2;
+
+            ctx.drawImage(img, imgX, imgY, finalW, finalH);
             resolve();
           };
           img.onerror = resolve;
@@ -672,6 +655,6 @@
       document.getElementById('btnPlay').disabled = true;
       window.showBookList = showBookList;
     });
-  </script>
+  </script>   
 </body>
 </html>
