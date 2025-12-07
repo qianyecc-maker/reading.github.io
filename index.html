@@ -22,8 +22,9 @@
     header {
       background: #4361ee;
       color: white;
-      padding: 10px; /* 更紧凑 */
+      padding: 10px;
       text-align: center;
+      font-size: 18px;
     }
     .btn {
       padding: 12px 20px;
@@ -99,6 +100,13 @@
       border: 1px solid #ddd;
       border-radius: 8px;
       margin: 20px 0;
+      display: none; /* 隐藏 canvas，只用 img 展示 */
+    }
+    #summaryImage {
+      width: 100%;
+      border-radius: 8px;
+      margin: 15px 0;
+      display: none;
     }
     .group-preview {
       margin: 15px 0;
@@ -121,7 +129,7 @@
 </head>
 <body>
   <div class="container">
-    <header></header>
+    <header>KET 单词听写练习</header>
 
     <!-- 主页 -->
     <div id="homeSection" class="section">
@@ -152,14 +160,18 @@
     <!-- 汇总页面 -->
     <div id="summarySection" class="section">
       <h3>📄 听写结果汇总</h3>
-      <p>共完成 <span id="totalWords"></span> 个单词</p>
+      <p>共完成 <span id="totalWords">0</span> 个单词</p>
+      <!-- 隐藏 canvas（仅用于生成图） -->
       <canvas id="summaryCanvas"></canvas>
+      <!-- 👇 关键：iOS 可长按保存的图片 -->
+      <img id="summaryImage" alt="KET听写结果汇总图，请长按保存到相册" />
       <div class="controls">
         <button id="btnDownload" class="btn">💾 保存图片</button>
         <button id="btnBackHome" class="btn">🏠 返回主页</button>
       </div>
-      <p style="text-align:center; margin-top:15px; color:#666;">
-        💡 长按上方图片可发送到微信或保存到相册
+      <p style="text-align:center; margin-top:15px; color:#e74c3c; font-weight:bold;">
+        💡 iPhone 用户：请<strong>长按上方图片</strong> → “存储图像”<br>
+        微信用户：可长按保存后转发，或截图分享
       </p>
     </div>
   </div>
@@ -479,44 +491,87 @@
       showNextTask();
     }
 
-    // ========== 生成汇总图 ==========
+    // ========== 生成高清汇总图（适配 iOS 保存 + 清晰手写） ==========
     async function generateSummary() {
+      const maxWidth = 900;
+      const handwritingHeight = 130;
+      const lineHeight = handwritingHeight + 20;
+      const paddingX = 25;
+      const topMargin = 80;
+
+      const totalHeight = Math.max(400, topMargin + handwritingRecords.length * lineHeight + 60);
+
       const canvas = document.getElementById('summaryCanvas');
       const ctx = canvas.getContext('2d');
 
-      const maxWidth = 800;
-      const lineHeight = 90;
-      const totalHeight = Math.max(300, handwritingRecords.length * lineHeight + 100);
-      canvas.width = maxWidth;
-      canvas.height = totalHeight;
+      // 高 DPI 支持（防模糊）
+      const scale = window.devicePixelRatio || 1;
+      canvas.width = maxWidth * scale;
+      canvas.height = totalHeight * scale;
+      canvas.style.width = maxWidth + 'px';
+      canvas.style.height = totalHeight + 'px';
+      ctx.scale(scale, scale);
 
+      // 背景
       ctx.fillStyle = '#ffffff';
       ctx.fillRect(0, 0, maxWidth, totalHeight);
 
-      ctx.font = 'bold 24px Arial';
+      // 标题
+      ctx.font = 'bold 28px -apple-system, BlinkMacSystemFont, "Helvetica Neue", sans-serif';
       ctx.fillStyle = '#4361ee';
       ctx.textAlign = 'center';
-      ctx.fillText('KET 听写结果汇总', maxWidth / 2, 40);
+      ctx.fillText('KET 听写结果汇总', maxWidth / 2, 50);
 
-      ctx.font = '16px Arial';
+      ctx.font = '18px -apple-system, BlinkMacSystemFont, "Helvetica Neue", sans-serif';
       ctx.fillStyle = '#333';
       ctx.textAlign = 'left';
 
+      // 绘制每条记录
       for (let i = 0; i < handwritingRecords.length; i++) {
         const rec = handwritingRecords[i];
-        const y = 80 + i * lineHeight;
+        const y = topMargin + i * lineHeight;
 
         let text = rec.type === 'audio'
           ? `🔊 ${rec.word}`
-          : `📖 ${rec.meaning} → ${rec.word}`;
-        ctx.fillText(text, 20, y);
+          : `📖 ${rec.meaning || '—'} → ${rec.word}`;
 
+        // 自动换行（简单处理）
+        if (ctx.measureText(text).width > maxWidth - 260) {
+          const words = text.split(' ');
+          let line1 = '';
+          let line2 = '';
+          for (const w of words) {
+            if (!line1) {
+              line1 = w;
+            } else if (ctx.measureText(line1 + ' ' + w).width < maxWidth - 260) {
+              line1 += ' ' + w;
+            } else if (!line2) {
+              line2 = w;
+            } else {
+              line2 += ' ' + w;
+            }
+          }
+          ctx.fillText(line1, paddingX, y + 12);
+          if (line2) ctx.fillText(line2, paddingX, y + 36);
+        } else {
+          ctx.fillText(text, paddingX, y + 24);
+        }
+
+        // 绘制手写图像（保持比例，清晰显示）
         const img = new Image();
         img.src = rec.imageData;
         await new Promise(resolve => {
           img.onload = () => {
-            const scale = 0.3;
-            ctx.drawImage(img, maxWidth - 120, y - 50, 100, 60);
+            const iw = img.width;
+            const ih = img.height;
+            const targetH = handwritingHeight - 30;
+            const scaleImg = targetH / ih;
+            const targetW = iw * scaleImg;
+            const finalW = Math.min(targetW, 240);
+            const finalH = (finalW / iw) * ih;
+            const x = maxWidth - finalW - paddingX;
+            const yImg = y + (handwritingHeight - finalH) / 2;
+            ctx.drawImage(img, x, yImg, finalW, finalH);
             resolve();
           };
           img.onerror = resolve;
@@ -524,6 +579,12 @@
       }
 
       document.getElementById('totalWords').textContent = handwritingRecords.length;
+
+      // 👇 关键：生成图片并显示给用户（iOS 可长按保存）
+      const summaryImg = document.getElementById('summaryImage');
+      summaryImg.src = canvas.toDataURL('image/png');
+      summaryImg.style.display = 'block';
+
       showSection('summarySection');
     }
 
@@ -591,17 +652,21 @@
       document.getElementById('btnClear').onclick = clearWritingCanvas;
       document.getElementById('btnNext').onclick = nextWord;
       document.getElementById('btnDownload').onclick = () => {
+        const canvas = document.getElementById('summaryCanvas');
         const link = document.createElement('a');
         link.download = 'KET_听写结果.png';
-        link.href = document.getElementById('summaryCanvas').toDataURL('image/png');
-        link.click();
+        link.href = canvas.toDataURL('image/png');
+
+        if (/iPad|iPhone|iPod/.test(navigator.userAgent)) {
+          alert('📱 iPhone 用户：请直接长按下方图片 → “存储图像”');
+        } else {
+          link.click();
+        }
       };
       document.getElementById('btnBackHome').onclick = () => showSection('homeSection');
       document.getElementById('btnBackToBooks').onclick = () => showBookList();
 
-      // 初始禁用播放按钮
       document.getElementById('btnPlay').disabled = true;
-
       window.showBookList = showBookList;
     });
   </script>
