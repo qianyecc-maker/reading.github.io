@@ -20,13 +20,7 @@
       box-shadow: 0 4px 12px rgba(0,0,0,0.1);
       overflow: hidden;
     }
-    header {
-      background: #4361ee;
-      color: white;
-      padding: 10px;
-      text-align: center;
-      font-size: 18px;
-    }
+
     .btn {
       padding: 12px 20px;
       margin: 8px;
@@ -53,7 +47,30 @@
       display: block;
     }
 
-    /* 👇 书写区显著增大（原顶部标题已删） */
+    /* 👇 进度条样式 */
+    .progress-info {
+      text-align: center;
+      margin-bottom: 12px;
+      font-size: 16px;
+      color: #495057;
+    }
+
+    .progress-bar-container {
+      width: 100%;
+      height: 8px;
+      background-color: #e9ecef;
+      border-radius: 4px;
+      overflow: hidden;
+      margin-top: 6px;
+    }
+
+    .progress-bar {
+      height: 100%;
+      background: linear-gradient(to right, #4cc9f0, #4361ee);
+      width: 0%;
+      transition: width 0.3s ease;
+    }
+
     .word-display {
       font-size: 22px;
       text-align: center;
@@ -68,8 +85,8 @@
 
     #writingCanvas {
       width: 100%;
-      height: min(320px, calc(50vh - 20px)); /* 更高、更舒适 */
-      max-height: 320px;
+      height: min(400px, calc(60vh - 20px));
+      max-height: 400px;
       border: 2px dashed #ccc;
       border-radius: 8px;
       background: white;
@@ -131,16 +148,14 @@
         max-width: 300px;
       }
       #writingCanvas {
-        height: min(280px, calc(45vh)); /* 小屏适配 */
-        max-height: 280px;
+        height: min(340px, calc(55vh));
+        max-height: 340px;
       }
     }
   </style>
 </head>
 <body>
   <div class="container">
-    <header>KET 单词听写练习</header>
-
     <!-- 主页 -->
     <div id="homeSection" class="section">
       <button id="btnSelectBook" class="btn">📚 选择词书</button>
@@ -153,9 +168,15 @@
     <!-- 子组页面 -->
     <div id="groupList" class="section"></div>
 
-    <!-- 听写界面（✅ 已删除顶部 h3 标题） -->
+    <!-- 听写界面 -->
     <div id="dictationArea" class="section">
-      <!-- ✂️ 原标题“请手写输入听到/看到的英文单词”已完全移除 -->
+      <!-- 👇 新增：进度信息 -->
+      <div class="progress-info">
+        <span id="progressText">第 0 / 0 个</span>
+        <div class="progress-bar-container">
+          <div id="progressBar" class="progress-bar"></div>
+        </div>
+      </div>
       <div class="word-display" id="currentPrompt">点击“开始听写”</div>
       <div class="hint" id="currentHint"></div>
       <canvas id="writingCanvas"></canvas>
@@ -450,8 +471,14 @@
       resizeWritingCanvas();
     }
 
-    // ========== 动态启用/禁用“再次播放”按钮 ==========
+    // ========== 更新进度并显示下一个任务 ==========
     function showNextTask() {
+      const total = currentTasks.length;
+      const current = currentTaskIndex + 1;
+      document.getElementById('progressText').textContent = `第 ${current} / ${total} 个`;
+      const percent = total > 0 ? (currentTaskIndex / total) * 100 : 0;
+      document.getElementById('progressBar').style.width = percent + '%';
+
       if (currentTaskIndex >= currentTasks.length) {
         generateSummary();
         return;
@@ -497,7 +524,7 @@
       showNextTask();
     }
 
-    // ========== 生成高清汇总图（超紧凑左对齐布局） ==========
+    // ========== 生成高清汇总图 ==========
     async function generateSummary() {
       const maxWidth = 880;
       const handwritingMaxHeight = 72;
@@ -521,7 +548,6 @@
       ctx.fillStyle = '#ffffff';
       ctx.fillRect(0, 0, maxWidth, totalHeight);
 
-      // 标题
       ctx.font = 'bold 24px -apple-system, BlinkMacSystemFont, "Helvetica Neue", sans-serif';
       ctx.fillStyle = '#4361ee';
       ctx.textAlign = 'center';
