@@ -47,10 +47,10 @@
       display: block;
     }
 
-    /* 👇 进度条样式（保持不变） */
+    /* 进度条样式 */
     .progress-info {
       text-align: center;
-      margin: 12px 0;
+      margin: 10px 0;
       font-size: 16px;
       color: #495057;
     }
@@ -71,34 +71,40 @@
       transition: width 0.3s ease;
     }
 
+    /* 👇 缩小后的单词提示框 */
     .word-display {
-      font-size: 22px;
+      font-size: 20px;
       text-align: center;
-      margin: 15px 0;
-      padding: 12px;
+      margin: 10px 0;
+      padding: 8px;
       background: #f8f9ff;
-      border-radius: 10px;
-      min-height: 40px;
+      border-radius: 8px;
+      min-height: auto;
+      height: 36px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
       font-weight: bold;
-      letter-spacing: 1.5px;
+      letter-spacing: 1.2px;
     }
 
+    /* 👇 调整后的手写区域高度 */
     #writingCanvas {
       width: 100%;
-      height: min(400px, calc(60vh - 20px));
-      max-height: 400px;
+      height: min(340px, calc(55vh - 20px));
+      max-height: 340px;
       border: 2px dashed #ccc;
       border-radius: 8px;
       background: white;
-      margin: 15px 0;
+      margin: 12px 0;
       touch-action: none;
     }
 
     .controls {
       display: flex;
       flex-wrap: wrap;
-      gap: 10px;
-      margin-top: 15px;
+      gap: 8px;
+      margin-top: 10px;
       justify-content: center;
     }
 
@@ -141,10 +147,17 @@
       .btn {
         width: 90%;
         max-width: 300px;
+        padding: 10px 16px;
+        font-size: 15px;
+      }
+      .word-display {
+        font-size: 18px;
+        height: 32px;
+        padding: 6px;
       }
       #writingCanvas {
-        height: min(340px, calc(55vh));
-        max-height: 340px;
+        height: min(280px, calc(50vh));
+        max-height: 280px;
       }
     }
   </style>
@@ -167,7 +180,7 @@
     <div id="dictationArea" class="section">
       <div class="word-display" id="currentPrompt">点击“开始听写”</div>
       
-      <!-- ✅ 进度条移到这里（在提示下方、手写区上方） -->
+      <!-- 进度条：移到提示下方 -->
       <div class="progress-info">
         <span id="progressText">第 0 / 0 个</span>
         <div class="progress-bar-container">
@@ -175,7 +188,6 @@
         </div>
       </div>
 
-      <!-- ⚠️ 不再有 hint 提示行 -->
       <canvas id="writingCanvas"></canvas>
       <div class="controls">
         <button id="btnPlay" class="btn">🔊 再次播放</button>
