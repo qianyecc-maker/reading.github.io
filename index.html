@@ -47,10 +47,10 @@
       display: block;
     }
 
-    /* 👇 进度条样式 */
+    /* 👇 进度条样式（保持不变） */
     .progress-info {
       text-align: center;
-      margin-bottom: 12px;
+      margin: 12px 0;
       font-size: 16px;
       color: #495057;
     }
@@ -101,12 +101,7 @@
       margin-top: 15px;
       justify-content: center;
     }
-    .hint {
-      text-align: center;
-      color: #666;
-      font-size: 14px;
-      margin-top: -8px;
-    }
+
     .error {
       color: #e63946;
       padding: 10px;
@@ -170,15 +165,17 @@
 
     <!-- 听写界面 -->
     <div id="dictationArea" class="section">
-      <!-- 👇 新增：进度信息 -->
+      <div class="word-display" id="currentPrompt">点击“开始听写”</div>
+      
+      <!-- ✅ 进度条移到这里（在提示下方、手写区上方） -->
       <div class="progress-info">
         <span id="progressText">第 0 / 0 个</span>
         <div class="progress-bar-container">
           <div id="progressBar" class="progress-bar"></div>
         </div>
       </div>
-      <div class="word-display" id="currentPrompt">点击“开始听写”</div>
-      <div class="hint" id="currentHint"></div>
+
+      <!-- ⚠️ 不再有 hint 提示行 -->
       <canvas id="writingCanvas"></canvas>
       <div class="controls">
         <button id="btnPlay" class="btn">🔊 再次播放</button>
@@ -486,25 +483,14 @@
 
       const task = currentTasks[currentTaskIndex];
       const promptEl = document.getElementById('currentPrompt');
-      const hintEl = document.getElementById('currentHint');
       const btnPlay = document.getElementById('btnPlay');
 
       if (task.type === 'audio') {
         btnPlay.disabled = false;
         promptEl.textContent = '🔊 请听发音...';
-        hintEl.textContent = '（手写英文单词）';
-
-        const audioUrl = `https://dict.youdao.com/dictvoice?audio=${encodeURIComponent(task.word)}&type=2`;
-        const audio = document.getElementById('pronunciationAudio');
-        audio.src = audioUrl;
-        audio.play().catch(e => {
-          console.warn('发音播放失败:', e);
-          promptEl.textContent = '🔊 发音加载中...（或点击“再次播放”）';
-        });
       } else {
         btnPlay.disabled = true;
         promptEl.textContent = task.meaning || '[无中文]';
-        hintEl.textContent = '（根据中文写出英文）';
       }
 
       clearWritingCanvas();
