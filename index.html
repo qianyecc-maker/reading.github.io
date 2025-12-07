@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover"/>
-  <title>KET 单词听写</title>
+  <title>KET 单词听写 · 离线版</title>
   <style>
     body {
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
@@ -205,12 +205,60 @@
   <audio id="pronunciationAudio" style="display:none;"></audio>
 
   <script>
-    let vocabularyData = null;
+    // ========== 内置词库（无需外部文件）==========
+    const vocabularyData = [
+      {
+        name: "【KET】Unit 1 - Greetings",
+        words: [
+          {"word": "hello", "meaning": "你好"},
+          {"word": "hi", "meaning": "嗨"},
+          {"word": "goodbye", "meaning": "再见"},
+          {"word": "name", "meaning": "名字"},
+          {"word": "what", "meaning": "什么"},
+          {"word": "your", "meaning": "你的"},
+          {"word": "my", "meaning": "我的"},
+          {"word": "I", "meaning": "我"},
+          {"word": "am", "meaning": "是"},
+          {"word": "fine", "meaning": "好的"}
+        ]
+      },
+      {
+        name: "【KET】Unit 2 - Family",
+        words: [
+          {"word": "mother", "meaning": "妈妈"},
+          {"word": "father", "meaning": "爸爸"},
+          {"word": "brother", "meaning": "兄弟"},
+          {"word": "sister", "meaning": "姐妹"},
+          {"word": "family", "meaning": "家庭"},
+          {"word": "baby", "meaning": "婴儿"},
+          {"word": "boy", "meaning": "男孩"},
+          {"word": "girl", "meaning": "女孩"},
+          {"word": "man", "meaning": "男人"},
+          {"word": "woman", "meaning": "女人"}
+        ]
+      },
+      {
+        name: "【KET】Unit 3 - School",
+        words: [
+          {"word": "school", "meaning": "学校"},
+          {"word": "teacher", "meaning": "老师"},
+          {"word": "student", "meaning": "学生"},
+          {"word": "book", "meaning": "书"},
+          {"word": "pen", "meaning": "钢笔"},
+          {"word": "pencil", "meaning": "铅笔"},
+          {"word": "desk", "meaning": "书桌"},
+          {"word": "chair", "meaning": "椅子"},
+          {"word": "classroom", "meaning": "教室"},
+          {"word": "homework", "meaning": "家庭作业"}
+        ]
+      }
+    ];
+
     let currentTasks = [];
     let currentTaskIndex = 0;
     let handwritingRecords = [];
-    let isVocabularyLoading = false;
 
+    // ========== 工具函数 ==========
     function shuffle(array) {
       const arr = [...array];
       for (let i = arr.length - 1; i > 0; i--) {
@@ -295,26 +343,284 @@
       writingCtx.clearRect(0, 0, writingCanvas.width, writingCanvas.height);
     }
 
-    // ========== 加载词库 ==========
-    async function loadVocabulary() {
-      if (isVocabularyLoading) return;
-      isVocabularyLoading = true;
+    // ========== 页面逻辑 ==========
+    function showBookList() {
+      const el = document.getElementById('bookList');
+      el.innerHTML = '<h3>📖 请选择词书分类</h3>';
+      
+      vocabularyData.forEach(book => {
+        const btn = document.createElement('button');
+        btn.className = 'btn';
+        btn.textContent = book.name;
+        btn.onclick = () => showGroupList(book);
+        el.appendChild(btn);
+      });
+      
+      showSection('bookList');
+    }
 
-      try {
-        const res = await fetch('./ket-vocabulary.json');
-        if (!res.ok) throw new Error('HTTP ' + res.status);
-        const data = await res.json();
-        if (!Array.isArray(data)) throw new Error('数据格式应为数组');
-        vocabularyData = data;
-        showBookList();
-      } catch (err) {
-        let msg = '❌ 词库加载失败！\n\n请确认：\n1. 同目录下存在 ket-vocabulary.json\n2. 文件格式正确\n3. 使用 http/https 打开（不能直接 file://）';
-        if (err.message.includes('Failed to fetch')) {
-          msg += '\n\n💡 建议：将本页面拖入 VS Code Live Server 或 Python HTTP 服务中打开';
+    function showGroupList(book) {
+      const groups = smartChunk(book.words);
+      const el = document.getElementById('groupList');
+      
+      let html = `<h3>📂 ${book.name}</h3>`;
+      html += `<p style="color:#666;">共 ${book.words.length} 个单词，分为 ${groups.length} 组</p>`;
+      html += `<button id="backToBookListBtn" class="btn">⬅️ 返回分类列表</button><br><br>`;
+
+      el.innerHTML = html;
+
+      // 动态绑定返回按钮
+      document.getElementById('backToBookListBtn').onclick = () => showBookList();
+
+      groups.forEach((group, index) => {
+        const groupDiv = document.createElement('div');
+        groupDiv.className = 'group-preview';
+
+        const titleBtn = document.createElement('button');
+        titleBtn.className = 'btn';
+        titleBtn.textContent = `第 ${index + 1} 组 (${group.length} 词)`;
+        titleBtn.style.width = '100%';
+        titleBtn.style.margin = '0 0 10px 0';
+
+        const toggleBtn = document.createElement('button');
+        toggleBtn.className = 'btn';
+        toggleBtn.textContent = '👁️ 预览单词';
+        toggleBtn.style.fontSize = '14px';
+        toggleBtn.style.padding = '6px 12px';
+        toggleBtn.style.backgroundColor = '#f0f0f0';
+
+        const previewList = document.createElement('div');
+        previewList.className = 'preview-list hidden';
+
+        let listHtml = '<strong>本次听写单词：</strong><br>';
+        group.forEach(item => {
+          if (item && item.word) {
+            const meaning = item.meaning || '—';
+            listHtml += `<div>${item.word} — ${meaning}</div>`;
+          }
+        });
+        previewList.innerHTML = listHtml;
+
+        const startBtn = document.createElement('button');
+        startBtn.className = 'btn';
+        startBtn.textContent = '▶️ 开始听写';
+        startBtn.style.marginTop = '12px';
+        startBtn.style.width = 'fit-content';
+        startBtn.style.padding = '8px 16px';
+        startBtn.style.fontSize = '14px';
+        startBtn.style.backgroundColor = '#4CAF50';
+        startBtn.style.color = 'white';
+        startBtn.onclick = () => startDictation(group, book.name);
+
+        function togglePreview() {
+          if (previewList.classList.contains('hidden')) {
+            previewList.classList.remove('hidden');
+            toggleBtn.textContent = '👆 收起预览';
+          } else {
+            previewList.classList.add('hidden');
+            toggleBtn.textContent = '👁️ 预览单词';
+          }
         }
-        alert(msg);
-        console.error('词库加载错误:', err);
 
-        if (!vocabularyData) {
-          vocabularyData = [{
-            name: "【
+        titleBtn.onclick = togglePreview;
+        toggleBtn.onclick = togglePreview;
+
+        groupDiv.appendChild(titleBtn);
+        groupDiv.appendChild(toggleBtn);
+        groupDiv.appendChild(previewList);
+        groupDiv.appendChild(startBtn);
+
+        el.appendChild(groupDiv);
+      });
+
+      showSection('groupList');
+    }
+
+    function startDictation(words, categoryName) {
+      const tasks = [];
+      words.forEach(item => {
+        if (item && typeof item === 'object' && item.word) {
+          tasks.push({ type: 'audio', word: item.word, meaning: item.meaning || '', category: categoryName });
+          tasks.push({ type: 'meaning', word: item.word, meaning: item.meaning || '', category: categoryName });
+        }
+      });
+
+      if (tasks.length === 0) {
+        alert('⚠️ 该组无有效单词');
+        return;
+      }
+
+      currentTasks = shuffle(tasks);
+      currentTaskIndex = 0;
+      handwritingRecords = [];
+
+      showNextTask();
+      showSection('dictationArea');
+      resizeWritingCanvas();
+    }
+
+    function showNextTask() {
+      const total = currentTasks.length;
+      const current = currentTaskIndex + 1;
+      document.getElementById('progressText').textContent = `第 ${current} / ${total} 个`;
+      const percent = total > 0 ? (currentTaskIndex / total) * 100 : 0;
+      document.getElementById('progressBar').style.width = percent + '%';
+
+      if (currentTaskIndex >= currentTasks.length) {
+        generateSummary();
+        return;
+      }
+
+      const task = currentTasks[currentTaskIndex];
+      const promptEl = document.getElementById('currentPrompt');
+      const btnPlay = document.getElementById('btnPlay');
+
+      if (task.type === 'audio') {
+        btnPlay.disabled = false;
+        promptEl.textContent = '🔊 请听发音...';
+      } else {
+        btnPlay.disabled = true;
+        promptEl.textContent = task.meaning || '[无中文]';
+      }
+
+      clearWritingCanvas();
+    }
+
+    function nextWord() {
+      const imageData = writingCanvas.toDataURL('image/png');
+      handwritingRecords.push({
+        word: currentTasks[currentTaskIndex].word,
+        meaning: currentTasks[currentTaskIndex].meaning,
+        type: currentTasks[currentTaskIndex].type,
+        imageData: imageData
+      });
+
+      currentTaskIndex++;
+      showNextTask();
+    }
+
+    async function generateSummary() {
+      const maxWidth = 880;
+      const handwritingMaxHeight = 72;
+      const lineHeight = handwritingMaxHeight + 18;
+      const paddingX = 20;
+      const topMargin = 65;
+      const textMaxWidth = 310;
+
+      const totalHeight = Math.max(320, topMargin + handwritingRecords.length * lineHeight + 40);
+
+      const canvas = document.getElementById('summaryCanvas');
+      const ctx = canvas.getContext('2d');
+
+      const scale = window.devicePixelRatio || 1;
+      canvas.width = maxWidth * scale;
+      canvas.height = totalHeight * scale;
+      canvas.style.width = maxWidth + 'px';
+      canvas.style.height = totalHeight + 'px';
+      ctx.scale(scale, scale);
+
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(0, 0, maxWidth, totalHeight);
+
+      ctx.font = 'bold 24px -apple-system, BlinkMacSystemFont, "Helvetica Neue", sans-serif';
+      ctx.fillStyle = '#4361ee';
+      ctx.textAlign = 'center';
+      ctx.fillText('KET 听写结果汇总', maxWidth / 2, 42);
+
+      ctx.textAlign = 'left';
+      ctx.fillStyle = '#333';
+      ctx.font = '16px -apple-system, BlinkMacSystemFont, "Helvetica Neue", sans-serif';
+
+      for (let i = 0; i < handwritingRecords.length; i++) {
+        const rec = handwritingRecords[i];
+        const y = topMargin + i * lineHeight;
+
+        let text = rec.type === 'audio'
+          ? `🔊 ${rec.word}`
+          : `📖 ${rec.meaning || '—'} → ${rec.word}`;
+
+        ctx.fillText(text, paddingX, y + handwritingMaxHeight / 2 + 4);
+
+        const img = new Image();
+        img.src = rec.imageData;
+        await new Promise(resolve => {
+          img.onload = () => {
+            const iw = img.width;
+            const ih = img.height;
+            if (ih === 0) { resolve(); return; }
+
+            const scaleImg = handwritingMaxHeight / ih;
+            const targetW = iw * scaleImg;
+            const finalW = Math.min(targetW, 170);
+            const finalH = (finalW / iw) * ih;
+
+            const imgX = paddingX + textMaxWidth + 6;
+            const imgY = y + (handwritingMaxHeight - finalH) / 2;
+
+            ctx.drawImage(img, imgX, imgY, finalW, finalH);
+            resolve();
+          };
+          img.onerror = resolve;
+        });
+      }
+
+      document.getElementById('totalWords').textContent = handwritingRecords.length;
+
+      const summaryImg = document.getElementById('summaryImage');
+      summaryImg.src = canvas.toDataURL('image/png');
+      summaryImg.style.display = 'block';
+
+      showSection('summarySection');
+    }
+
+    // ========== 事件绑定 ==========
+    window.addEventListener('load', () => {
+      resizeWritingCanvas();
+      window.addEventListener('resize', resizeWritingCanvas);
+
+      writingCanvas.addEventListener('mousedown', startDrawing);
+      writingCanvas.addEventListener('mousemove', draw);
+      writingCanvas.addEventListener('mouseup', stopDrawing);
+      writingCanvas.addEventListener('mouseleave', stopDrawing);
+      writingCanvas.addEventListener('touchstart', e => { e.preventDefault(); startDrawing(e); });
+      writingCanvas.addEventListener('touchmove', e => { e.preventDefault(); draw(e); });
+      writingCanvas.addEventListener('touchend', stopDrawing);
+
+      // 所有按钮统一绑定
+      document.getElementById('btnSelectBook').onclick = () => showBookList();
+      document.getElementById('btnStart').onclick = () => startDictation(vocabularyData[0].words, vocabularyData[0].name);
+
+      document.getElementById('btnPlay').onclick = () => {
+        const task = currentTasks[currentTaskIndex];
+        if (task?.type === 'audio') {
+          const audioUrl = `https://dict.youdao.com/dictvoice?audio=${encodeURIComponent(task.word)}&type=2`;
+          const audio = document.getElementById('pronunciationAudio');
+          audio.src = audioUrl;
+          audio.play().catch(e => {
+            alert('⚠️ 发音无法播放（需联网）\n但可继续手写练习');
+          });
+        }
+      };
+
+      document.getElementById('btnClear').onclick = clearWritingCanvas;
+      document.getElementById('btnNext').onclick = nextWord;
+      document.getElementById('btnBackToBooks').onclick = () => showBookList();
+      document.getElementById('btnBackHome').onclick = () => showSection('homeSection');
+      document.getElementById('btnDownload').onclick = () => {
+        const canvas = document.getElementById('summaryCanvas');
+        const link = document.createElement('a');
+        link.download = 'KET_听写结果.png';
+        link.href = canvas.toDataURL('image/png');
+
+        if (/iPad|iPhone|iPod/.test(navigator.userAgent)) {
+          alert('📱 iPhone 用户：请直接长按下方图片 → “存储图像”');
+        } else {
+          link.click();
+        }
+      };
+
+      document.getElementById('btnPlay').disabled = true;
+    });
+  </script>   
+</body>
+</html>
