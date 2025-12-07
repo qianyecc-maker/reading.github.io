@@ -2,14 +2,15 @@
 <html lang="zh-CN">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover"/>
   <title>KET 单词听写</title>
   <style>
     body {
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
       background: #f5f7fa;
       margin: 0;
-      padding: 16px;
+      padding: 12px;
+      box-sizing: border-box;
     }
     .container {
       max-width: 900px;
@@ -55,20 +56,25 @@
       margin-top: 0;
       color: #4361ee;
     }
+
+    /* 👇 关键：移动端自适应 Canvas */
     #writingCanvas {
       width: 100%;
-      height: 200px;
+      height: min(200px, calc(35vh - 60px)); /* 自适应高度，避免滚动 */
       border: 2px dashed #ccc;
       border-radius: 8px;
       background: white;
       margin: 15px 0;
       touch-action: none;
+      max-height: 200px;
     }
+
     .controls {
       display: flex;
       flex-wrap: wrap;
       gap: 10px;
       margin-top: 15px;
+      justify-content: center;
     }
     .word-display {
       font-size: 28px;
@@ -100,7 +106,7 @@
       border: 1px solid #ddd;
       border-radius: 8px;
       margin: 20px 0;
-      display: none; /* 隐藏 canvas，只用 img 展示 */
+      display: none;
     }
     #summaryImage {
       width: 100%;
@@ -124,6 +130,18 @@
     }
     .preview-list.hidden {
       display: none !important;
+    }
+
+    /* 确保移动端按钮不换行太散 */
+    @media (max-width: 600px) {
+      .controls {
+        flex-direction: column;
+        align-items: center;
+      }
+      .btn {
+        width: 90%;
+        max-width: 300px;
+      }
     }
   </style>
 </head>
@@ -161,9 +179,7 @@
     <div id="summarySection" class="section">
       <h3>📄 听写结果汇总</h3>
       <p>共完成 <span id="totalWords">0</span> 个单词</p>
-      <!-- 隐藏 canvas（仅用于生成图） -->
       <canvas id="summaryCanvas"></canvas>
-      <!-- 👇 关键：iOS 可长按保存的图片 -->
       <img id="summaryImage" alt="KET听写结果汇总图，请长按保存到相册" />
       <div class="controls">
         <button id="btnDownload" class="btn">💾 保存图片</button>
@@ -176,7 +192,6 @@
     </div>
   </div>
 
-  <!-- 隐藏音频播放器（用于有道发音） -->
   <audio id="pronunciationAudio" style="display:none;"></audio>
 
   <script>
@@ -186,7 +201,6 @@
     let handwritingRecords = [];
     let isVocabularyLoading = false;
 
-    // ========== 工具函数 ==========
     function shuffle(array) {
       const arr = [...array];
       for (let i = arr.length - 1; i > 0; i--) {
@@ -491,20 +505,19 @@
       showNextTask();
     }
 
-    // ========== 生成高清汇总图（适配 iOS 保存 + 清晰手写） ==========
+    // ========== 生成高清汇总图（紧凑布局） ==========
     async function generateSummary() {
       const maxWidth = 900;
-      const handwritingHeight = 130;
-      const lineHeight = handwritingHeight + 20;
-      const paddingX = 25;
-      const topMargin = 80;
+      const handwritingMaxHeight = 80; // 👈 缩小高度
+      const lineHeight = handwritingMaxHeight + 25; // 行距更紧凑
+      const paddingX = 20;
+      const topMargin = 70;
 
-      const totalHeight = Math.max(400, topMargin + handwritingRecords.length * lineHeight + 60);
+      const totalHeight = Math.max(350, topMargin + handwritingRecords.length * lineHeight + 50);
 
       const canvas = document.getElementById('summaryCanvas');
       const ctx = canvas.getContext('2d');
 
-      // 高 DPI 支持（防模糊）
       const scale = window.devicePixelRatio || 1;
       canvas.width = maxWidth * scale;
       canvas.height = totalHeight * scale;
@@ -512,21 +525,18 @@
       canvas.style.height = totalHeight + 'px';
       ctx.scale(scale, scale);
 
-      // 背景
       ctx.fillStyle = '#ffffff';
       ctx.fillRect(0, 0, maxWidth, totalHeight);
 
-      // 标题
-      ctx.font = 'bold 28px -apple-system, BlinkMacSystemFont, "Helvetica Neue", sans-serif';
+      ctx.font = 'bold 26px -apple-system, BlinkMacSystemFont, "Helvetica Neue", sans-serif';
       ctx.fillStyle = '#4361ee';
       ctx.textAlign = 'center';
-      ctx.fillText('KET 听写结果汇总', maxWidth / 2, 50);
+      ctx.fillText('KET 听写结果汇总', maxWidth / 2, 45);
 
-      ctx.font = '18px -apple-system, BlinkMacSystemFont, "Helvetica Neue", sans-serif';
+      ctx.font = '17px -apple-system, BlinkMacSystemFont, "Helvetica Neue", sans-serif';
       ctx.fillStyle = '#333';
       ctx.textAlign = 'left';
 
-      // 绘制每条记录
       for (let i = 0; i < handwritingRecords.length; i++) {
         const rec = handwritingRecords[i];
         const y = topMargin + i * lineHeight;
@@ -535,42 +545,38 @@
           ? `🔊 ${rec.word}`
           : `📖 ${rec.meaning || '—'} → ${rec.word}`;
 
-        // 自动换行（简单处理）
-        if (ctx.measureText(text).width > maxWidth - 260) {
+        // 控制文字宽度，避免换行过多
+        const textWidth = ctx.measureText(text).width;
+        if (textWidth > maxWidth - 220) {
+          // 简单截断或缩小字号（此处保持可读性，优先换行）
           const words = text.split(' ');
-          let line1 = '';
-          let line2 = '';
+          let line = '';
           for (const w of words) {
-            if (!line1) {
-              line1 = w;
-            } else if (ctx.measureText(line1 + ' ' + w).width < maxWidth - 260) {
-              line1 += ' ' + w;
-            } else if (!line2) {
-              line2 = w;
+            if (ctx.measureText(line + w).width < maxWidth - 220) {
+              line += (line ? ' ' : '') + w;
             } else {
-              line2 += ' ' + w;
+              break;
             }
           }
-          ctx.fillText(line1, paddingX, y + 12);
-          if (line2) ctx.fillText(line2, paddingX, y + 36);
-        } else {
-          ctx.fillText(text, paddingX, y + 24);
+          text = line + '…';
         }
 
-        // 绘制手写图像（保持比例，清晰显示）
+        // 文字绘制（垂直居中）
+        ctx.fillText(text, paddingX, y + handwritingMaxHeight / 2 + 5);
+
+        // 手写图绘制（右侧，紧凑）
         const img = new Image();
         img.src = rec.imageData;
         await new Promise(resolve => {
           img.onload = () => {
             const iw = img.width;
             const ih = img.height;
-            const targetH = handwritingHeight - 30;
-            const scaleImg = targetH / ih;
+            const scaleImg = handwritingMaxHeight / ih;
             const targetW = iw * scaleImg;
-            const finalW = Math.min(targetW, 240);
+            const finalW = Math.min(targetW, 180); // 最大宽度 180px
             const finalH = (finalW / iw) * ih;
             const x = maxWidth - finalW - paddingX;
-            const yImg = y + (handwritingHeight - finalH) / 2;
+            const yImg = y + (handwritingMaxHeight - finalH) / 2; // 垂直居中
             ctx.drawImage(img, x, yImg, finalW, finalH);
             resolve();
           };
@@ -580,7 +586,6 @@
 
       document.getElementById('totalWords').textContent = handwritingRecords.length;
 
-      // 👇 关键：生成图片并显示给用户（iOS 可长按保存）
       const summaryImg = document.getElementById('summaryImage');
       summaryImg.src = canvas.toDataURL('image/png');
       summaryImg.style.display = 'block';
@@ -593,7 +598,6 @@
       resizeWritingCanvas();
       window.addEventListener('resize', resizeWritingCanvas);
 
-      // 画布事件
       writingCanvas.addEventListener('mousedown', startDrawing);
       writingCanvas.addEventListener('mousemove', draw);
       writingCanvas.addEventListener('mouseup', stopDrawing);
@@ -602,7 +606,6 @@
       writingCanvas.addEventListener('touchmove', e => { e.preventDefault(); draw(e); });
       writingCanvas.addEventListener('touchend', stopDrawing);
 
-      // 按钮绑定
       document.getElementById('btnSelectBook').onclick = async () => {
         const btn = document.getElementById('btnSelectBook');
         if (vocabularyData) {
