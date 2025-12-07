@@ -9,7 +9,7 @@
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
       background: #f5f7fa;
       margin: 0;
-      padding: 12px;
+      padding: 0;
       box-sizing: border-box;
     }
     .container {
@@ -22,15 +22,15 @@
     }
 
     .btn {
-      padding: 12px 20px;
-      margin: 8px;
-      font-size: 16px;
+      padding: 10px 12px;
+      font-size: 14px;
       border: none;
-      border-radius: 8px;
+      border-radius: 6px;
       cursor: pointer;
       background: #4cc9f0;
       color: #1e2022;
       font-weight: bold;
+      white-space: nowrap;
     }
     .btn:hover { opacity: 0.9; }
     .btn:disabled {
@@ -40,30 +40,49 @@
       opacity: 0.6;
     }
     .section {
-      padding: 20px;
+      padding: 16px;
       display: none;
     }
     #homeSection {
       display: block;
     }
 
-    /* 进度条样式 */
+    /* —————— 听写区域：极致紧凑 —————— */
+    #dictationArea {
+      padding: 12px 10px;
+    }
+
+    .word-display {
+      font-size: 17px;
+      text-align: center;
+      margin: 6px 0;
+      padding: 4px 8px;
+      background: #f8f9ff;
+      border-radius: 6px;
+      height: 28px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: bold;
+      letter-spacing: 1px;
+      line-height: 1;
+    }
+
     .progress-info {
       text-align: center;
-      margin: 10px 0;
-      font-size: 16px;
-      color: #495057;
+      margin: 6px 0;
+      font-size: 14px;
+      color: #555;
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
     }
-
     .progress-bar-container {
-      width: 100%;
-      height: 8px;
+      height: 6px;
       background-color: #e9ecef;
-      border-radius: 4px;
+      border-radius: 3px;
       overflow: hidden;
-      margin-top: 6px;
     }
-
     .progress-bar {
       height: 100%;
       background: linear-gradient(to right, #4cc9f0, #4361ee);
@@ -71,43 +90,35 @@
       transition: width 0.3s ease;
     }
 
-    /* 👇 缩小后的单词提示框 */
-    .word-display {
-      font-size: 20px;
-      text-align: center;
-      margin: 10px 0;
-      padding: 8px;
-      background: #f8f9ff;
-      border-radius: 8px;
-      min-height: auto;
-      height: 36px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-weight: bold;
-      letter-spacing: 1.2px;
-    }
-
-    /* 👇 调整后的手写区域高度 */
     #writingCanvas {
       width: 100%;
-      height: min(340px, calc(55vh - 20px));
-      max-height: 340px;
-      border: 2px dashed #ccc;
-      border-radius: 8px;
+      height: min(240px, calc(45vh));
+      max-height: 240px;
+      border: 1px dashed #ccc;
+      border-radius: 6px;
       background: white;
-      margin: 12px 0;
+      margin: 8px 0;
       touch-action: none;
     }
 
     .controls {
-      display: flex;
-      flex-wrap: wrap;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
       gap: 8px;
-      margin-top: 10px;
-      justify-content: center;
+      margin-top: 8px;
     }
 
+    @media (max-width: 480px) {
+      .controls {
+        grid-template-columns: 1fr;
+      }
+      .btn {
+        padding: 8px 12px;
+        font-size: 14px;
+      }
+    }
+
+    /* —————— 其他页面样式 —————— */
     .error {
       color: #e63946;
       padding: 10px;
@@ -138,28 +149,6 @@
     .preview-list.hidden {
       display: none !important;
     }
-
-    @media (max-width: 600px) {
-      .controls {
-        flex-direction: column;
-        align-items: center;
-      }
-      .btn {
-        width: 90%;
-        max-width: 300px;
-        padding: 10px 16px;
-        font-size: 15px;
-      }
-      .word-display {
-        font-size: 18px;
-        height: 32px;
-        padding: 6px;
-      }
-      #writingCanvas {
-        height: min(280px, calc(50vh));
-        max-height: 280px;
-      }
-    }
   </style>
 </head>
 <body>
@@ -180,7 +169,6 @@
     <div id="dictationArea" class="section">
       <div class="word-display" id="currentPrompt">点击“开始听写”</div>
       
-      <!-- 进度条：移到提示下方 -->
       <div class="progress-info">
         <span id="progressText">第 0 / 0 个</span>
         <div class="progress-bar-container">
@@ -676,6 +664,4 @@
       document.getElementById('btnPlay').disabled = true;
       window.showBookList = showBookList;
     });
-  </script>   
-</body>
-</html>
+  </
