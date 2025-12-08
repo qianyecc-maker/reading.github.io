@@ -23,7 +23,7 @@
 
     .btn {
       padding: 12px 20px;
-      margin: 8px;
+      margin: 6px;
       font-size: 16px;
       border: none;
       border-radius: 8px;
@@ -40,28 +40,28 @@
       opacity: 0.6;
     }
     .section {
-      padding: 20px;
+      padding: 16px;
       display: none;
     }
     #homeSection {
       display: block;
     }
 
-    /* 👇 进度条样式（保持不变） */
+    /* 👇 进度条样式（更紧凑） */
     .progress-info {
       text-align: center;
-      margin: 12px 0;
-      font-size: 16px;
+      margin: 8px 0;
+      font-size: 15px;
       color: #495057;
     }
 
     .progress-bar-container {
       width: 100%;
-      height: 8px;
+      height: 6px;
       background-color: #e9ecef;
-      border-radius: 4px;
+      border-radius: 3px;
       overflow: hidden;
-      margin-top: 6px;
+      margin-top: 4px;
     }
 
     .progress-bar {
@@ -72,33 +72,33 @@
     }
 
     .word-display {
-      font-size: 22px;
+      font-size: 20px;
       text-align: center;
-      margin: 15px 0;
-      padding: 12px;
+      margin: 10px 0;
+      padding: 10px;
       background: #f8f9ff;
-      border-radius: 10px;
-      min-height: 40px;
+      border-radius: 8px;
+      min-height: 36px;
       font-weight: bold;
-      letter-spacing: 1.5px;
+      letter-spacing: 1px;
     }
 
     #writingCanvas {
       width: 100%;
-      height: min(400px, calc(60vh - 20px));
-      max-height: 400px;
+      height: min(300px, calc(50vh - 20px));
+      max-height: 300px;
       border: 2px dashed #ccc;
       border-radius: 8px;
       background: white;
-      margin: 15px 0;
+      margin: 10px 0;
       touch-action: none;
     }
 
     .controls {
       display: flex;
       flex-wrap: wrap;
-      gap: 10px;
-      margin-top: 15px;
+      gap: 8px;
+      margin-top: 10px;
       justify-content: center;
     }
 
@@ -116,15 +116,15 @@
       display: none;
     }
     .group-preview {
-      margin: 15px 0;
-      padding: 15px;
+      margin: 12px 0;
+      padding: 12px;
       border: 1px solid #e9ecef;
       border-radius: 8px;
       background-color: #fafafa;
     }
     .preview-list {
-      margin-top: 10px;
-      max-height: 200px;
+      margin-top: 8px;
+      max-height: 160px;
       overflow-y: auto;
       font-size: 14px;
       line-height: 1.6;
@@ -143,8 +143,11 @@
         max-width: 300px;
       }
       #writingCanvas {
-        height: min(340px, calc(55vh));
-        max-height: 340px;
+        height: min(260px, calc(45vh));
+        max-height: 260px;
+      }
+      .section {
+        padding: 12px;
       }
     }
   </style>
@@ -167,7 +170,6 @@
     <div id="dictationArea" class="section">
       <div class="word-display" id="currentPrompt">点击“开始听写”</div>
       
-      <!-- ✅ 进度条移到这里（在提示下方、手写区上方） -->
       <div class="progress-info">
         <span id="progressText">第 0 / 0 个</span>
         <div class="progress-bar-container">
@@ -175,7 +177,6 @@
         </div>
       </div>
 
-      <!-- ⚠️ 不再有 hint 提示行 -->
       <canvas id="writingCanvas"></canvas>
       <div class="controls">
         <button id="btnPlay" class="btn">🔊 再次播放</button>
@@ -383,7 +384,7 @@
         titleBtn.className = 'btn';
         titleBtn.textContent = `第 ${index + 1} 组 (${group.length} 词)`;
         titleBtn.style.width = '100%';
-        titleBtn.style.margin = '0 0 10px 0';
+        titleBtn.style.margin = '0 0 8px 0';
 
         const toggleBtn = document.createElement('button');
         toggleBtn.className = 'btn';
@@ -407,7 +408,7 @@
         const startBtn = document.createElement('button');
         startBtn.className = 'btn';
         startBtn.textContent = '▶️ 开始听写';
-        startBtn.style.marginTop = '12px';
+        startBtn.style.marginTop = '10px';
         startBtn.style.width = 'fit-content';
         startBtn.style.padding = '8px 16px';
         startBtn.style.fontSize = '14px';
@@ -666,4 +667,4 @@
     });
   </script>   
 </body>
-</html>          减少垂直占用，让垂直的空隙少一些
+</html>
