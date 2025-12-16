@@ -47,7 +47,6 @@
       display: block;
     }
 
-    /* 👇 进度条样式（更紧凑） */
     .progress-info {
       text-align: center;
       margin: 8px 0;
@@ -489,6 +488,18 @@
       if (task.type === 'audio') {
         btnPlay.disabled = false;
         promptEl.textContent = '🔊 请听发音...';
+
+        // ✅ 自动播放音频（关键修复）
+        const audioUrl = `https://dict.youdao.com/dictvoice?audio=${encodeURIComponent(task.word)}&type=2`;
+        const audio = document.getElementById('pronunciationAudio');
+        // 重置音频防止堆积
+        audio.pause();
+        audio.currentTime = 0;
+        audio.src = audioUrl;
+        audio.play().catch(e => {
+          console.warn('自动播放被阻止:', e);
+          promptEl.innerHTML = '🔊 <strong>请点击下方“再次播放”</strong>';
+        });
       } else {
         btnPlay.disabled = true;
         promptEl.textContent = task.meaning || '[无中文]';
@@ -638,6 +649,8 @@
         if (task?.type === 'audio') {
           const audioUrl = `https://dict.youdao.com/dictvoice?audio=${encodeURIComponent(task.word)}&type=2`;
           const audio = document.getElementById('pronunciationAudio');
+          audio.pause();
+          audio.currentTime = 0;
           audio.src = audioUrl;
           audio.play().catch(e => {
             alert('⚠️ 发音无法播放，请检查网络');
